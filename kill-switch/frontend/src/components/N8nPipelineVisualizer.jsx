@@ -3,15 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { checkReducedMotion } from '../config';
 import { SPRING, DURATION, EASING } from '../motionVariants';
 
-export default function N8nPipelineVisualizer({ 
-  isSending, 
-  isFrozen, 
-  lastDecision, 
-  onTriggerRequest, 
-  onTriggerKillSwitch 
+export default function N8nPipelineVisualizer({
+  isSending,
+  isFrozen,
+  lastDecision,
+  onTriggerRequest,
+  onTriggerKillSwitch
 }) {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [activeSubNodeId, setActiveSubNodeId] = useState(null);
+  const [customPrompt, setCustomPrompt] = useState('Pay Acme Corp $150');
   const shouldReduceMotion = checkReducedMotion();
 
   // Granular Sub-Node Execution Animation Pacing
@@ -28,6 +29,7 @@ export default function N8nPipelineVisualizer({
       return;
     }
 
+    /* Presentational pacing during real async wait, not synthetic data */
     const sequence = ['B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'C5', 'D1', 'D2', 'D3', 'D4', 'D5'];
     let step = 0;
 
@@ -112,60 +114,63 @@ export default function N8nPipelineVisualizer({
   const selectedNode = workflowNodes.find(n => n.id === selectedNodeId);
 
   return (
-    <motion.div 
+    <motion.div
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: DURATION.deliberate, ease: EASING.entrance, delay: 0.18 }}
-      className="glass-panel rounded-xl p-5 bg-white border border-slate-200 shadow-sm space-y-5 overflow-hidden relative"
+      className="glass-panel rounded-2xl p-6 space-y-6 scanline overflow-hidden relative shadow-lg border border-[#2A2A2A]"
     >
       {/* Visualizer Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#2A2A2A] pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-sans font-bold text-base text-slate-900">n8n Live Workflow Visualizer</h2>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold animate-pulse">
+            <h2 className="font-display font-bold text-base uppercase tracking-wide text-[#F5F5F5]">n8n Live Workflow Visualizer</h2>
+            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-[#22C55E] font-bold animate-pulse">
               ● LIVE NODE TOPOLOGY
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">Real-time execution tracing across Workflows A, B, C, and D</p>
+          <p className="text-xs text-[#8A8A8E] mt-1">Real-time execution tracing across Workflows A, B, C, and D (Positioned below Ledger)</p>
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-3 text-[11px] font-mono text-slate-600 bg-slate-50 px-3 py-1 rounded-lg border border-slate-200">
+        <div className="flex items-center gap-3 text-[11px] font-mono text-[#8A8A8E] bg-[#141414] px-3 py-1.5 rounded-xl border border-[#2A2A2A]">
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+            <span className="w-2 h-2 rounded-full bg-[#8A8A8E]"></span>
             <span>IDLE</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
-            <span className="text-indigo-700 font-bold">PROCESSING</span>
+            <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+            <span className="text-white font-bold">PROCESSING</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="text-emerald-700 font-bold">PASS</span>
+            <span className="w-2 h-2 rounded-full bg-[#22C55E]"></span>
+            <span className="text-[#22C55E] font-bold">PASS</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-red-500"></span>
-            <span className="text-red-700 font-bold">REJECTED</span>
+            <span className="w-2 h-2 rounded-full bg-[#EF4444]"></span>
+            <span className="text-[#EF4444] font-bold">REJECTED</span>
           </div>
         </div>
       </div>
 
-      {/* Main Workflow Topology Canvas with SVG Connecting Cables */}
-      <div className="space-y-4 relative py-1">
+
+
+      {/* Main Workflow Topology Canvas with Animated SVG Stream Cables */}
+      <div className="space-y-4 relative py-2">
 
         {/* SVG Flow Stream Canvas Overlay */}
-        <svg className="hidden md:block absolute top-[90px] left-0 right-0 w-full h-12 pointer-events-none z-0 overflow-visible opacity-60">
-          <line x1="28%" y1="50%" x2="42%" y2="50%" stroke="#94A3B8" strokeWidth="2" strokeDasharray="4 4" />
-          <line x1="62%" y1="50%" x2="76%" y2="50%" stroke="#94A3B8" strokeWidth="2" strokeDasharray="4 4" />
+        <svg className="hidden md:block absolute top-[90px] left-0 right-0 w-full h-12 pointer-events-none z-0 overflow-visible opacity-50">
+          <line x1="28%" y1="50%" x2="42%" y2="50%" stroke="#8A8A8E" strokeWidth="2" strokeDasharray="4 4" />
+          <line x1="62%" y1="50%" x2="76%" y2="50%" stroke="#8A8A8E" strokeWidth="2" strokeDasharray="4 4" />
 
+          {/* Animated Glowing Packet Dots */}
           {(isSending || activeSubNodeId) && !shouldReduceMotion && (
             <>
-              <circle r="4" fill="#635BFF">
+              <circle r="4" fill="#FFFFFF">
                 <animate attributeName="cx" values="28%; 42%" dur="0.6s" repeatCount="indefinite" />
                 <animate attributeName="cy" values="50%; 50%" dur="0.6s" repeatCount="indefinite" />
               </circle>
-              <circle r="4" fill="#635BFF">
+              <circle r="4" fill="#FFFFFF">
                 <animate attributeName="cx" values="62%; 76%" dur="0.6s" begin="0.3s" repeatCount="indefinite" />
                 <animate attributeName="cy" values="50%; 50%" dur="0.6s" begin="0.3s" repeatCount="indefinite" />
               </circle>
@@ -179,26 +184,26 @@ export default function N8nPipelineVisualizer({
             const isSelected = selectedNodeId === wf.id;
 
             return (
-              <div 
+              <div
                 key={wf.id}
-                className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3 relative shadow-xs"
+                className="glass-panel p-4 rounded-xl border border-[#2A2A2A] bg-[#141414] space-y-3 relative shadow-md"
               >
                 {/* Workflow Header */}
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div className="flex items-center justify-between border-b border-[#2A2A2A] pb-2">
                   <div>
-                    <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">{wf.id.toUpperCase()}</span>
-                    <h3 className="font-sans text-xs font-bold text-slate-900">{wf.title}</h3>
+                    <span className="text-[10px] font-mono font-bold text-[#8A8A8E] uppercase">{wf.id.toUpperCase()}</span>
+                    <h3 className="font-mono text-xs font-bold text-[#F5F5F5]">{wf.title}</h3>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setSelectedNodeId(isSelected ? null : wf.id)}
-                    className="text-[10px] font-mono text-indigo-600 underline font-bold hover:text-indigo-800"
+                    className="text-[10px] font-mono text-white underline font-bold"
                   >
                     {isSelected ? 'Close' : 'Inspect'}
                   </button>
                 </div>
 
                 {/* Internal n8n Sub-Nodes List */}
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {wf.subNodes.map((sn) => {
                     const isSubActive = activeSubNodeId === sn.id;
                     const isSubPass = lastDecision?.decision === 'APPROVED' && !isSending && activeSubNodeId === 'D5';
@@ -211,34 +216,33 @@ export default function N8nPipelineVisualizer({
                       <motion.div
                         key={sn.id}
                         animate={isSubActive && !shouldReduceMotion ? { scale: [1, 1.02, 1] } : {}}
-                        className={`p-2 rounded-lg border text-xs font-mono transition-all flex items-center justify-between ${
-                          isSubActive 
-                            ? 'bg-indigo-50 border-indigo-500 text-indigo-900 shadow-sm' 
-                            : isSubPass 
-                              ? 'bg-emerald-50 border-emerald-300 text-emerald-900' 
-                              : isSubRejected 
-                                ? 'bg-red-50 border-red-300 text-red-900 shadow-xs' 
-                                : 'bg-white border-slate-200 text-slate-700'
-                        }`}
+                        className={`p-2.5 rounded-lg border text-xs font-mono transition-all flex items-center justify-between ${isSubActive
+                            ? 'bg-[#1C1C1C] border-white text-white shadow-[0_0_12px_rgba(255,255,255,0.3)]'
+                            : isSubPass
+                              ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-300'
+                              : isSubRejected
+                                ? 'bg-red-950/50 border-red-500 text-red-300 shadow-[0_0_12px_rgba(239,68,68,0.3)]'
+                                : 'bg-[#0A0A0A] border-[#2A2A2A] text-[#8A8A8E]'
+                          }`}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-800">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#1C1C1C] text-white">
                             {sn.id}
                           </span>
                           <div>
-                            <span className="font-semibold text-[11px] block text-slate-900">{sn.name}</span>
-                            <span className="text-[9px] text-slate-500">{sn.desc}</span>
+                            <span className="font-semibold text-[11px] block text-white">{sn.name}</span>
+                            <span className="text-[9px] text-[#8A8A8E]">{sn.desc}</span>
                           </div>
                         </div>
 
                         {isSubActive ? (
-                          <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
+                          <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
                         ) : isSubPass ? (
-                          <span className="text-emerald-600 font-bold">✓</span>
+                          <span className="text-[#22C55E] font-bold">✓</span>
                         ) : isSubRejected ? (
-                          <span className="text-red-600 font-bold">✕</span>
+                          <span className="text-[#EF4444] font-bold">✕</span>
                         ) : (
-                          <span className="text-slate-300">○</span>
+                          <span className="text-zinc-600">○</span>
                         )}
                       </motion.div>
                     );
@@ -255,17 +259,17 @@ export default function N8nPipelineVisualizer({
           const isSysSelected = selectedNodeId === sysWf.id;
 
           return (
-            <div className={`p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2 relative z-10 ${isFrozen ? 'border-red-300 bg-red-50' : ''}`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2">
+            <div className={`p-4 rounded-xl border border-[#2A2A2A] bg-[#141414] space-y-3 relative z-10 ${isFrozen ? 'border-red-500/60 bg-red-950/20' : ''}`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#2A2A2A] pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded border border-red-200">
+                  <span className="text-xs font-mono font-bold text-red-400 bg-red-950/80 px-2 py-0.5 rounded border border-red-500/30">
                     SYSTEM CONTROL
                   </span>
-                  <h3 className="font-sans text-xs font-bold text-slate-900">{sysWf.title}</h3>
+                  <h3 className="font-mono text-xs font-bold text-[#F5F5F5]">{sysWf.title}</h3>
                 </div>
-                <button 
+                <button
                   onClick={() => setSelectedNodeId(isSysSelected ? null : sysWf.id)}
-                  className="text-[10px] font-mono text-indigo-600 underline font-bold hover:text-indigo-800"
+                  className="text-[10px] font-mono text-white underline font-bold"
                 >
                   {isSysSelected ? 'Close' : 'Inspect Node'}
                 </button>
@@ -273,12 +277,12 @@ export default function N8nPipelineVisualizer({
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 font-mono text-xs">
                 {sysWf.subNodes.map((sn) => (
-                  <div key={sn.id} className="p-2 rounded bg-white border border-slate-200 flex items-center justify-between text-[11px]">
+                  <div key={sn.id} className="p-2 rounded bg-[#0A0A0A] border border-[#2A2A2A] flex items-center justify-between text-[11px]">
                     <div>
-                      <span className="text-slate-900 font-bold block">{sn.name}</span>
-                      <span className="text-[9px] text-slate-500">{sn.desc}</span>
+                      <span className="text-white font-bold block">{sn.name}</span>
+                      <span className="text-[9px] text-[#8A8A8E]">{sn.desc}</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-bold">{sn.id}</span>
+                    <span className="text-[10px] text-zinc-500 font-bold">{sn.id}</span>
                   </div>
                 ))}
               </div>
@@ -296,16 +300,16 @@ export default function N8nPipelineVisualizer({
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: DURATION.deliberate, ease: EASING.entrance }}
-            className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 font-mono text-xs overflow-hidden relative z-20"
+            className="p-4 rounded-xl bg-[#1C1C1C] border border-[#2A2A2A] space-y-3 font-mono text-xs overflow-hidden shadow-inner relative z-20"
           >
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <div className="flex items-center justify-between border-b border-[#2A2A2A] pb-2">
               <div className="flex items-center gap-2">
-                <span className="text-indigo-600 font-bold">🔍 Node Inspector:</span>
-                <span className="text-slate-900 font-bold">{selectedNode.title}</span>
+                <span className="text-emerald-400 font-bold">🔍 Node Inspector:</span>
+                <span className="text-white font-bold">{selectedNode.title}</span>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedNodeId(null)}
-                className="text-slate-500 hover:text-slate-900 text-xs font-bold"
+                className="text-[#8A8A8E] hover:text-white text-xs font-bold"
               >
                 ✕ Close Inspector
               </button>
@@ -313,26 +317,26 @@ export default function N8nPipelineVisualizer({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
               <div className="space-y-1">
-                <span className="text-slate-500 uppercase tracking-wider text-[10px] font-bold">Trigger Mechanism & Webhook URL</span>
-                <div className="text-slate-900 p-2 rounded bg-white border border-slate-200 font-semibold break-all select-all">{selectedNode.triggerType}</div>
+                <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Trigger Mechanism & Webhook URL</span>
+                <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold break-all select-all">{selectedNode.triggerType}</div>
               </div>
 
               <div className="space-y-1">
-                <span className="text-slate-500 uppercase tracking-wider text-[10px] font-bold">Credential Scope (Zero-Trust)</span>
-                <div className="text-slate-900 p-2 rounded bg-white border border-slate-200 font-semibold">{selectedNode.credential}</div>
+                <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Credential Scope (Zero-Trust)</span>
+                <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold">{selectedNode.credential}</div>
               </div>
             </div>
 
             <div className="space-y-1">
-              <span className="text-slate-500 uppercase tracking-wider text-[10px] font-bold">Enforced Security Checkpoint</span>
-              <div className="text-slate-900 p-2 rounded bg-white border border-slate-200 font-semibold">{selectedNode.checkpoint}</div>
+              <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Enforced Security Checkpoint</span>
+              <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold">{selectedNode.checkpoint}</div>
             </div>
 
             <div className="space-y-1">
-              <span className="text-slate-500 uppercase tracking-wider text-[10px] font-bold">n8n Internal Nodes Included</span>
+              <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">n8n Internal Nodes Included</span>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {selectedNode.nodesInWorkflow.map((n, idx) => (
-                  <span key={idx} className="px-2 py-1 rounded bg-white border border-slate-200 text-[10px] text-slate-700 font-mono font-medium">
+                  <span key={idx} className="px-2 py-1 rounded bg-[#141414] border border-[#2A2A2A] text-[10px] text-[#A1A1AA] font-mono font-medium">
                     {n}
                   </span>
                 ))}

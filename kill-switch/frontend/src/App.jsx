@@ -191,9 +191,8 @@ export default function App() {
 
       {notification && (
         <div className="fixed top-20 right-6 z-50 animate-bounce">
-          <div className={`px-4 py-3 rounded-xl border text-sm font-mono shadow-2xl flex items-center gap-3 ${
-            notification.type === 'error' ? 'bg-red-950/90 border-red-500 text-red-100' : 'bg-emerald-950/90 border-emerald-500 text-emerald-100'
-          }`}>
+          <div className={`px-4 py-3 rounded-xl border text-sm font-mono shadow-2xl flex items-center gap-3 ${notification.type === 'error' ? 'bg-red-950/90 border-red-500 text-red-100' : 'bg-emerald-950/90 border-emerald-500 text-emerald-100'
+            }`}>
             <span>{notification.type === 'error' ? '⚠️' : '✅'}</span>
             <span>{notification.msg}</span>
           </div>
@@ -201,37 +200,37 @@ export default function App() {
       )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6 flex-1 w-full">
-        
+
         {/* Top Hero Row: Metrics & Velocity Bar */}
         <div className="space-y-6">
-          <MetricsCards 
-            dailyLimit={state.daily_limit} 
-            spentToday={state.spent_today} 
-            remainingBudget={remainingBudget} 
-            budgetPercentage={budgetPercentage} 
+          <MetricsCards
+            dailyLimit={state.daily_limit}
+            spentToday={state.spent_today}
+            remainingBudget={remainingBudget}
+            budgetPercentage={budgetPercentage}
           />
 
-          <SpendProgressBar 
-            spentToday={state.spent_today} 
-            dailyLimit={state.daily_limit} 
-            budgetPercentage={budgetPercentage} 
+          <SpendProgressBar
+            spentToday={state.spent_today}
+            dailyLimit={state.daily_limit}
+            budgetPercentage={budgetPercentage}
           />
         </div>
 
         {/* Main Dashboard Section (8 : 4 Grid) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
+
           {/* Left Column (8 cols): Transaction Ledger -> n8n Workflow Execution Visualizer BELOW */}
           <div className="lg:col-span-8 space-y-6">
-            
+
             {/* 1. Transaction Ledger */}
             <TransactionLedger transactions={state.transactions} />
 
             {/* 2. n8n Workflow Execution Visualizer POSITIONED BELOW TRANSACTIONS LOG */}
-            <N8nPipelineVisualizer 
-              isSending={isSending} 
-              isFrozen={state.is_frozen} 
-              lastDecision={agentResponse} 
+            <N8nPipelineVisualizer
+              isSending={isSending}
+              isFrozen={state.is_frozen}
+              lastDecision={agentResponse}
               onTriggerRequest={handleSendAgentRequest}
               onTriggerKillSwitch={(action) => setActorModal({ open: true, action, actorName: '' })}
             />
@@ -239,9 +238,9 @@ export default function App() {
 
           {/* Right Column (4 cols): Circuit Breaker Control, Allowlist & Compliance */}
           <div className="lg:col-span-4 space-y-6">
-            <KillSwitchControl 
-              isFrozen={state.is_frozen} 
-              onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })} 
+            <KillSwitchControl
+              isFrozen={state.is_frozen}
+              onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })}
             />
 
             <AllowlistCard allowlist={state.allowlist} />
@@ -257,10 +256,10 @@ export default function App() {
         Stripe Test Mode · Supabase Postgres · n8n Cloud · Gemini 2.5 Flash
       </footer>
 
-      <OperatorModal 
-        actorModal={actorModal} 
-        setActorModal={setActorModal} 
-        onSubmit={handleKillSwitchSubmit} 
+      <OperatorModal
+        actorModal={actorModal}
+        setActorModal={setActorModal}
+        onSubmit={handleKillSwitchSubmit}
       />
     </div>
   );

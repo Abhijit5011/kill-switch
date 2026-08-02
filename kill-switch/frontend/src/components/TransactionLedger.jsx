@@ -17,7 +17,7 @@ export default function TransactionLedger({ transactions }) {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-      const matchesSearch = 
+      const matchesSearch =
         (t.recipient || '').toLowerCase().includes(searchFilter.toLowerCase()) ||
         (t.reason || '').toLowerCase().includes(searchFilter.toLowerCase()) ||
         (t.status || '').toLowerCase().includes(searchFilter.toLowerCase());
@@ -32,20 +32,20 @@ export default function TransactionLedger({ transactions }) {
   }, [transactions, activeTab, searchFilter]);
 
   return (
-    <motion.div 
+    <motion.div
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: DURATION.deliberate, ease: EASING.entrance, delay: 0.28 }}
-      className="glass-panel rounded-xl p-5 bg-white border border-slate-200 shadow-sm space-y-4"
+      className="glass-panel rounded-2xl p-5 scanline overflow-hidden space-y-4 shadow-sm"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="font-sans font-bold text-base text-slate-900">Transactions Ledger</h2>
-          <p className="text-xs text-slate-500">Immutable Stripe audit trail — click any log row to inspect record window</p>
+          <h2 className="font-display font-bold text-sm uppercase tracking-wide text-[#F5F5F5]">Authorization & Transaction Ledger</h2>
+          <p className="text-xs text-[#8A8A8E]">Immutable audit trail — click any log row to inspect record window</p>
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-mono">
+        <div className="flex items-center gap-1 bg-[#141414] p-1 rounded-xl border border-[#2A2A2A] text-xs font-mono">
           {['ALL', 'APPROVED', 'REJECTED', 'SYSTEM'].map(tab => (
             <motion.button
               key={tab}
@@ -53,11 +53,10 @@ export default function TransactionLedger({ transactions }) {
               whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
               transition={SPRING.cardSpring}
               onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1.5 rounded font-bold transition-all ${
-                activeTab === tab 
-                  ? 'bg-white text-slate-900 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${activeTab === tab
+                  ? 'bg-[#FFFFFF] text-[#0A0A0A] shadow-sm'
+                  : 'text-[#8A8A8E] hover:text-white hover:bg-[#1C1C1C]'
+                }`}
             >
               {tab}
             </motion.button>
@@ -68,34 +67,34 @@ export default function TransactionLedger({ transactions }) {
       {/* Search Filter */}
       <input
         type="text"
-        placeholder="Filter by recipient, description, or status..."
+        placeholder="Filter by recipient, reason, or status..."
         value={searchFilter}
         onChange={(e) => setSearchFilter(e.target.value)}
-        className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white shadow-inner"
+        className="w-full px-4 py-2.5 rounded-xl bg-[#141414] border border-[#2A2A2A] text-xs font-mono text-[#F5F5F5] placeholder-[#8A8A8E] focus:outline-none focus:border-zinc-500 shadow-inner"
       />
 
       {/* Table Content */}
-      <motion.div 
+      <motion.div
         key={activeTab}
         initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: DURATION.base, ease: EASING.entrance }}
-        className="overflow-x-auto max-h-[380px] overflow-y-auto rounded-lg border border-slate-200"
+        className="overflow-x-auto max-h-[380px] overflow-y-auto rounded-xl border border-[#2A2A2A]"
       >
-        <table className="w-full text-left text-xs font-sans">
-          <thead className="sticky top-0 bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 uppercase tracking-wider text-[11px] z-10">
+        <table className="w-full text-left text-xs font-mono">
+          <thead className="sticky top-0 bg-[#1C1C1C] text-[#8A8A8E] uppercase tracking-wider border-b border-[#2A2A2A] font-bold z-10">
             <tr>
+              <th className="py-3 px-4">Timestamp</th>
+              <th className="py-3 px-4">Recipient</th>
               <th className="py-3 px-4">Amount</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4">Payment Method</th>
-              <th className="py-3 px-4">Description</th>
-              <th className="py-3 px-4">Date</th>
+              <th className="py-3 px-4">Decision</th>
+              <th className="py-3 px-4">Reason / Details</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 bg-white">
+          <tbody className="divide-y divide-[#2A2A2A] bg-[#141414]">
             {filteredTransactions.length === 0 ? (
               <tr>
-                <td colSpan="5" className="py-8 text-center text-slate-500">No ledger records match the selected filter.</td>
+                <td colSpan="5" className="py-8 text-center text-[#8A8A8E]">No ledger records match the selected filter.</td>
               </tr>
             ) : (
               <AnimatePresence initial={false}>
@@ -106,46 +105,29 @@ export default function TransactionLedger({ transactions }) {
                   const isNew = !knownTxIdsRef.current.has(tx.id || tx.created_at);
 
                   return (
-                    <motion.tr 
+                    <motion.tr
                       key={tx.id || tx.created_at || i}
-                      initial={shouldReduceMotion ? { opacity: 0 } : (isNew ? { opacity: 0, y: -12, backgroundColor: "#F0FDF4" } : { opacity: 1 })}
-                      animate={{ opacity: 1, y: 0, backgroundColor: "#FFFFFF" }}
+                      initial={shouldReduceMotion ? { opacity: 0 } : (isNew ? { opacity: 0, y: -12, backgroundColor: "rgba(34, 197, 94, 0.15)" } : { opacity: 1 })}
+                      animate={{ opacity: 1, y: 0, backgroundColor: "rgba(20, 20, 20, 1)" }}
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: DURATION.deliberate, ease: EASING.entrance }}
                       onClick={() => setSelectedTxForDrawer(tx)}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="hover:bg-[#1C1C1C] transition-colors cursor-pointer"
                     >
-                      <td className="py-3 px-4 font-bold text-slate-900 tabular-nums">
-                        {isSystem ? '—' : `US${formatMoney(tx.amount)} USD`}
+                      <td className="py-3.5 px-4 text-[#8A8A8E] font-medium tabular-nums">{formatTime(tx.created_at)}</td>
+                      <td className="py-3.5 px-4 font-bold text-[#F5F5F5]">
+                        {isSystem ? <span className="text-[#A1A1AA] font-bold">⚙️ SYSTEM</span> : tx.recipient}
                       </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2.5 py-0.5 rounded text-[11px] font-medium inline-flex items-center gap-1 ${
-                          isApproved ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                          isRejected ? 'bg-red-100 text-red-800 border border-red-200' :
-                          'bg-slate-100 text-slate-700 border border-slate-200'
-                        }`}>
-                          {isApproved ? 'Succeeded ✓' : isRejected ? 'Declined ✕' : tx.status}
+                      <td className="py-3.5 px-4 font-bold text-[#F5F5F5] tabular-nums">{isSystem ? '—' : formatMoney(tx.amount)}</td>
+                      <td className="py-3.5 px-4">
+                        <span className={`px-2.5 py-1 rounded text-[11px] font-bold ${isApproved ? 'bg-emerald-950/60 text-[#22C55E] border border-emerald-500/40 shadow-sm' :
+                            isRejected ? 'bg-red-950/60 text-[#EF4444] border border-red-500/40 shadow-sm' :
+                              'bg-[#1C1C1C] text-[#A1A1AA] border border-[#2A2A2A] shadow-sm'
+                          }`}>
+                          {tx.status}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
-                        {isSystem ? (
-                          <span className="text-slate-400 font-mono text-[11px]">System Call</span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded bg-blue-900 text-white font-mono text-[10px] font-bold tracking-wider uppercase inline-flex items-center gap-1 shadow-xs">
-                            VISA <span className="text-zinc-300 font-normal">•••• 4242</span>
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-slate-700 font-medium truncate max-w-xs">
-                        {isSystem ? (
-                          <span className="text-slate-500 font-mono">{tx.reason}</span>
-                        ) : (
-                          <span>Payment to <strong className="text-slate-900">{tx.recipient}</strong> — <span className="text-slate-500 font-mono text-[11px]">{tx.reason || 'Stripe Test Intent'}</span></span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-slate-500 font-mono tabular-nums text-[11px]">
-                        {formatTime(tx.created_at)}
-                      </td>
+                      <td className="py-3.5 px-4 text-[#8A8A8E] truncate max-w-xs font-mono tabular-nums">{tx.reason || '—'}</td>
                     </motion.tr>
                   );
                 })}
@@ -157,9 +139,9 @@ export default function TransactionLedger({ transactions }) {
 
       {/* Transaction Detail Inspector Drawer Modal */}
       {selectedTxForDrawer && (
-        <TransactionDetailDrawer 
-          transaction={selectedTxForDrawer} 
-          onClose={() => setSelectedTxForDrawer(null)} 
+        <TransactionDetailDrawer
+          transaction={selectedTxForDrawer}
+          onClose={() => setSelectedTxForDrawer(null)}
         />
       )}
     </motion.div>
