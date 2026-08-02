@@ -7,7 +7,6 @@ import N8nPipelineVisualizer from './components/N8nPipelineVisualizer';
 import AllowlistCard from './components/AllowlistCard';
 import TransactionLedger from './components/TransactionLedger';
 import KillSwitchControl from './components/KillSwitchControl';
-import AiAgentPlayground from './components/AiAgentPlayground';
 import OperatorModal from './components/OperatorModal';
 import { CONFIG } from './config';
 
@@ -27,7 +26,6 @@ export default function App() {
   });
 
   // UI States
-  const [prompt, setPrompt] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [activeWorkflowStep, setActiveWorkflowStep] = useState(null);
   const [agentResponse, setAgentResponse] = useState(null);
@@ -134,66 +132,6 @@ export default function App() {
     }
   };
 
-  // Send Prompt to AI Agent Workflow
-  const handleSendAgentRequest = async (overridePrompt = null) => {
-    const textToUse = overridePrompt || prompt;
-    if (!textToUse.trim()) return;
-
-    setIsSending(true);
-    setAgentResponse(null);
-    setActiveWorkflowStep(1); // Workflow B
-
-    /* Presentational pacing during real async wait, not synthetic data */
-    const stepTimer1 = setTimeout(() => setActiveWorkflowStep(2), 300); // Workflow C
-    const stepTimer2 = setTimeout(() => setActiveWorkflowStep(3), 600); // Workflow D
-
-    if (state.is_frozen) {
-      setTimeout(() => {
-        setIsSending(false);
-        setAgentResponse({
-          decision: 'REJECTED',
-          reason: 'Wallet is frozen. The AI agent will not even attempt to interpret payment requests while the Emergency Kill Switch is active.'
-        });
-        clearTimeout(stepTimer1);
-        clearTimeout(stepTimer2);
-      }, 300);
-      return;
-    }
-
-    if (!CONFIG.AI_AGENT_WEBHOOK_URL || CONFIG.AI_AGENT_WEBHOOK_URL.includes('REPLACE_ME')) {
-      setTimeout(() => {
-        setIsSending(false);
-        setAgentResponse({
-          decision: 'DEMO MODE',
-          reason: 'Please configure CONFIG.AI_AGENT_WEBHOOK_URL to link to n8n Workflow B.'
-        });
-        clearTimeout(stepTimer1);
-        clearTimeout(stepTimer2);
-      }, 500);
-      return;
-    }
-
-    try {
-      const res = await fetch(CONFIG.AI_AGENT_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: textToUse })
-      });
-      const data = await res.json();
-      setAgentResponse(data);
-      fetchSupabaseData();
-    } catch (err) {
-      setAgentResponse({
-        decision: 'FAILED',
-        reason: 'Webhook execution failed. Please verify n8n Workflow B activation.'
-      });
-    } finally {
-      setIsSending(false);
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
-    }
-  };
-
   const remainingBudget = Math.max(0, state.daily_limit - state.spent_today);
   const budgetPercentage = Math.min(100, Math.round((state.spent_today / state.daily_limit) * 100));
 
@@ -244,19 +182,11 @@ export default function App() {
           <TransactionLedger transactions={state.transactions} />
         </div>
 
-        {/* Right Column: Physical Emergency Kill Switch & AI Agent Sandbox */}
+        {/* Right Column: Physical Emergency Kill Switch */}
         <div className="lg:col-span-4 space-y-6">
           <KillSwitchControl 
             isFrozen={state.is_frozen} 
             onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })} 
-          />
-
-          <AiAgentPlayground 
-            prompt={prompt} 
-            setPrompt={setPrompt} 
-            isSending={isSending} 
-            agentResponse={agentResponse} 
-            onSendRequest={handleSendAgentRequest} 
           />
         </div>
 
