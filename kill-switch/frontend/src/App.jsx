@@ -9,9 +9,33 @@ import TransactionLedger from './components/TransactionLedger';
 import KillSwitchControl from './components/KillSwitchControl';
 import SystemArchitectureCard from './components/SystemArchitectureCard';
 import OperatorModal from './components/OperatorModal';
+import AddCompanyModal from './components/AddCompanyModal';
 import { CONFIG } from './config';
 
 export default function App() {
+  // Theme State ('light' | 'dark') with localStorage Persistence
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('theme') || 'light';
+  });
+
+  const toggleTheme = () => {
+    setTheme(prev => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      localStorage.setItem('theme', next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
   // System State
   const [state, setState] = useState({
     is_frozen: false,
@@ -30,6 +54,7 @@ export default function App() {
   const [isSending, setIsSending] = useState(false);
   const [agentResponse, setAgentResponse] = useState(null);
   const [actorModal, setActorModal] = useState({ open: false, action: 'freeze', actorName: '' });
+  const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
   const [notification, setNotification] = useState(null);
 
   const showToast = (msg, type = 'info') => {
@@ -78,6 +103,37 @@ export default function App() {
     const interval = setInterval(fetchSupabaseData, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Add Company / Counterparty Handler
+  const handleAddCounterparty = async (newCompany) => {
+    setState(prev => ({
+      ...prev,
+      allowlist: [...prev.allowlist, newCompany]
+    }));
+
+    showToast(`✅ Verified Counterparty [${newCompany.name}] added to Allowlist`, 'success');
+
+    if (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.includes('REPLACE')) return;
+
+    try {
+      await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/allowlist`, {
+        method: 'POST',
+        headers: {
+          'apikey': CONFIG.SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${CONFIG.SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          name: newCompany.name,
+          address: newCompany.address
+        })
+      });
+      fetchSupabaseData();
+    } catch (err) {
+      console.error('Supabase allowlist insert error:', err);
+    }
+  };
 
   // Execute Kill Switch
   const handleKillSwitchSubmit = async () => {
@@ -184,15 +240,22 @@ export default function App() {
   const budgetPercentage = Math.min(100, Math.round((state.spent_today / state.daily_limit) * 100));
 
   return (
-    <div className="min-h-screen flex flex-col grid-pattern bg-[#0A0A0A] text-[#F5F5F5]">
-      <Header isFrozen={state.is_frozen} />
+    <div className={`min-h-screen flex flex-col grid-pattern transition-colors duration-300 ${
+      theme === 'dark' ? 'bg-[#0A0A0A] text-[#F5F5F5]' : 'bg-[#F8FAFC] text-[#0F172A]'
+    }`}>
+      <Header 
+        isFrozen={state.is_frozen} 
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
 
       {state.is_frozen && <EmergencyBanner />}
 
       {notification && (
         <div className="fixed top-20 right-6 z-50 animate-bounce">
-          <div className={`px-4 py-3 rounded-xl border text-sm font-mono shadow-2xl flex items-center gap-3 ${notification.type === 'error' ? 'bg-red-950/90 border-red-500 text-red-100' : 'bg-emerald-950/90 border-emerald-500 text-emerald-100'
-            }`}>
+          <div className={`px-4 py-3 rounded-xl border text-sm font-mono shadow-2xl flex items-center gap-3 ${
+            notification.type === 'error' ? 'bg-red-950/90 border-red-500 text-red-100' : 'bg-emerald-950/90 border-emerald-500 text-emerald-100'
+          }`}>
             <span>{notification.type === 'error' ? '⚠️' : '✅'}</span>
             <span>{notification.msg}</span>
           </div>
@@ -200,37 +263,37 @@ export default function App() {
       )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6 flex-1 w-full">
-
+        
         {/* Top Hero Row: Metrics & Velocity Bar */}
         <div className="space-y-6">
-          <MetricsCards
-            dailyLimit={state.daily_limit}
-            spentToday={state.spent_today}
-            remainingBudget={remainingBudget}
-            budgetPercentage={budgetPercentage}
+          <MetricsCards 
+            dailyLimit={state.daily_limit} 
+            spentToday={state.spent_today} 
+            remainingBudget={remainingBudget} 
+            budgetPercentage={budgetPercentage} 
           />
 
-          <SpendProgressBar
-            spentToday={state.spent_today}
-            dailyLimit={state.daily_limit}
-            budgetPercentage={budgetPercentage}
+          <SpendProgressBar 
+            spentToday={state.spent_today} 
+            dailyLimit={state.daily_limit} 
+            budgetPercentage={budgetPercentage} 
           />
         </div>
 
         {/* Main Dashboard Section (8 : 4 Grid) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
+          
           {/* Left Column (8 cols): Transaction Ledger -> n8n Workflow Execution Visualizer BELOW */}
           <div className="lg:col-span-8 space-y-6">
-
+            
             {/* 1. Transaction Ledger */}
             <TransactionLedger transactions={state.transactions} />
 
             {/* 2. n8n Workflow Execution Visualizer POSITIONED BELOW TRANSACTIONS LOG */}
-            <N8nPipelineVisualizer
-              isSending={isSending}
-              isFrozen={state.is_frozen}
-              lastDecision={agentResponse}
+            <N8nPipelineVisualizer 
+              isSending={isSending} 
+              isFrozen={state.is_frozen} 
+              lastDecision={agentResponse} 
               onTriggerRequest={handleSendAgentRequest}
               onTriggerKillSwitch={(action) => setActorModal({ open: true, action, actorName: '' })}
             />
@@ -238,12 +301,15 @@ export default function App() {
 
           {/* Right Column (4 cols): Circuit Breaker Control, Allowlist & Compliance */}
           <div className="lg:col-span-4 space-y-6">
-            <KillSwitchControl
-              isFrozen={state.is_frozen}
-              onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })}
+            <KillSwitchControl 
+              isFrozen={state.is_frozen} 
+              onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })} 
             />
 
-            <AllowlistCard allowlist={state.allowlist} />
+            <AllowlistCard 
+              allowlist={state.allowlist} 
+              onOpenAddModal={() => setIsAddCompanyModalOpen(true)}
+            />
 
             <SystemArchitectureCard />
           </div>
@@ -252,14 +318,20 @@ export default function App() {
 
       </main>
 
-      <footer className="border-t border-[#2A2A2A] py-4 text-center text-xs font-mono text-[#8A8A8E] bg-[#0A0A0A]">
+      <footer className="border-t border-slate-200 dark:border-[#2A2A2A] py-4 text-center text-xs font-mono text-slate-500 dark:text-[#8A8A8E] transition-colors duration-300">
         Stripe Test Mode · Supabase Postgres · n8n Cloud · Gemini 2.5 Flash
       </footer>
 
-      <OperatorModal
-        actorModal={actorModal}
-        setActorModal={setActorModal}
-        onSubmit={handleKillSwitchSubmit}
+      <OperatorModal 
+        actorModal={actorModal} 
+        setActorModal={setActorModal} 
+        onSubmit={handleKillSwitchSubmit} 
+      />
+
+      <AddCompanyModal 
+        isOpen={isAddCompanyModalOpen}
+        onClose={() => setIsAddCompanyModalOpen(false)}
+        onAdd={handleAddCounterparty}
       />
     </div>
   );
