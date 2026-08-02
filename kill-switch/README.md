@@ -2,11 +2,20 @@
 
 > **Zero-Trust Security, Multi-Stage Enforced Checkpoints, and Emergency Circuit Breakers for Autonomous Agentic Financial Transactions.**
 
+[![Vercel Deployment](https://img.shields.io/badge/Deployment-Vercel%20Live-black.svg?logo=vercel)](https://paypilot-killswitch.vercel.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](https://github.com/Abhijit5011/kill-switch)
 [![n8n Cloud](https://img.shields.io/badge/n8n-Microservices-orange.svg)](https://n8n.io)
 [![Supabase](https://img.shields.io/badge/Database-Supabase%20Postgres-emerald.svg)](https://supabase.com)
-[![Stripe API](https://img.shields.io/badge/Payment Rail-Stripe Test Mode-indigo.svg)](https://stripe.com)
+[![Stripe API](https://img.shields.io/badge/Payment%20Rail-Stripe%20Test%20Mode-indigo.svg)](https://stripe.com)
+
+---
+
+## 🚀 Live Production Deployment
+
+🔗 **Live Website URL:** [https://paypilot-killswitch.vercel.app/](https://paypilot-killswitch.vercel.app/)
+
+Experience **The Kill Switch** live in your browser, featuring single-URL gateway portal navigation, real-time n8n workflow execution node canvas visualizers, 3D circuit breaker emergency stops, and vendor invoice processing.
 
 ---
 
@@ -18,7 +27,40 @@
 
 ---
 
-## 🎯 Problem Statement & Zero-Trust Solution
+## 🌟 Key Application Features
+
+### 1. 🌐 Single-URL Unified Deployment Gateway
+- **Monochrome Entry Portal (`GatewayLandingScreen.jsx`):** On visiting the live URL, users land on an interactive entry gateway featuring 2 primary portals:
+  - **`🚀 Launch AI Agent Client Portal`**: Client payment playground, real-time spend velocity tracking, and emergency stop controls.
+  - **`🛡️ Access Vendor Invoice Server Portal`**: Enterprise vendor invoice processing, client PDF invoice generation, and audit logging.
+- **Persistent Top Bar Switcher:** 1-click `⬅ Gateway Home` navigation allowing users to return to the main landing screen at any time.
+
+### 2. 🤖 AI Agent Natural Language Playground & Gemini LLM Sandbox
+- **Natural Language Payment Requests:** Submit agent prompts (e.g. *"Pay Acme Corp $150"* or *"Pay Unknown Target $500"*).
+- **Gemini 2.5 Flash LLM Extraction:** Isolated natural language parser extracting structured JSON (`{ recipient, amount }`) without direct database or payment API access.
+
+### 3. ⚡ n8n Live Workflow Node Execution Canvas
+- **Visual Node Graph (`N8nPipelineVisualizer.jsx`):** Authentic n8n Cloud canvas visualizer displaying nodes (`🔴 Webhook`, `🟩 Supabase`, `🟧 Code/IF`, `🔷 Stripe`).
+- **Animated SVG Bezier Cables:** Continuous glowing SVG bezier stream curves with real-time particle animation during active requests.
+- **Granular Sub-Node Stepping:** Real-time execution pulses (`14ms`, `220ms`) showing passing checks (`✓`) or fail branches (`✕`).
+
+### 4. 🛑 3D Hardware Circuit Breaker Kill Switch
+- **Tactile 3D Housing (`KillSwitchControl.jsx`):** Features a flip-open protective cover and red emergency stop button.
+- **< 50ms Emergency Freeze SLA:** Triggering STOP updates `policies.is_frozen = true` in Postgres in **under 50ms**.
+- **Mandatory Operator Audit Log (`OperatorModal.jsx`):** Prompts for named operator signatures, recording immutable audit rows in Supabase.
+
+### 5. 📊 Spend Velocity Tracking & Daily Caps
+- **Real-Time Progress Bar (`SpendProgressBar.jsx`):** Visual spend cap bar and dynamic metric cards calculating remaining daily budget.
+- **Interactive Counterparty Allowlist (`AddCompanyModal.jsx`):** Prominent `+ Add Company` modal allowing instant verification and Supabase persistence of approved merchants.
+
+### 6. 📄 Enterprise Vendor Invoice & Server Portal
+- **Corporate Invoice Operations (`VendorInvoicePortal.jsx`):** Manage vendor invoice states, verify approval signatures, and search invoice ledgers.
+- **PDF Invoice Document Generation:** Instant browser-based PDF generation and direct receipt downloads.
+- **Supabase Postgres Audit Ledger:** Real-time synchronized server logs.
+
+---
+
+## 🎯 Problem Statement & Zero-Trust Architecture
 
 ### The Problem
 - **Direct Agent Exposure:** Giving an LLM direct access to payment APIs allows prompt injection attacks to drain corporate wallets.
@@ -85,95 +127,10 @@ graph TD
 
 The backend architecture consists of 4 decoupled n8n workflows (`n8n-workflows/*.json`):
 
-### 1. Workflow A — Kill Switch API (`workflow-a-kill-switch-api.json`)
-- **Trigger:** Public Webhook `POST https://abhijitdeshmukh.app.n8n.cloud/webhook/kill-switch`
-- **Credential Scope:** Supabase Service Role Key ONLY
-- **Responsibility:** Instantly mutates `policies.is_frozen` in Postgres (`true`/`false`) and appends an auditable `SYSTEM` transaction log row with the operator's name.
-
-### 2. Workflow B — AI Agent Gate (`workflow-b-ai-agent.json`)
-- **Trigger:** Public Webhook `POST https://abhijitdeshmukh.app.n8n.cloud/webhook/ai-agent`
-- **Credential Scope:** Gemini API Key ONLY
-- **Enforced Checkpoint:** **Checkpoint 1** (Fails fast if `policies.is_frozen === true` before calling Gemini).
-- **Responsibility:** Converts prompt text into structured JSON (`{ recipient, amount }`). Invokes Workflow C internally.
-
-### 3. Workflow C — Authorization Middleware (`workflow-c-authorization-middleware.json`)
-- **Trigger:** Internal `Execute Workflow Trigger` (Called by Workflow B)
-- **Credential Scope:** Supabase Service Role Key ONLY (Cannot call Stripe)
-- **Enforced Checkpoints:** **Checkpoint 2** (Allowlist verification & daily spend cap validation) & **Checkpoint 3** (Pre-executor race guard).
-- **Responsibility:** Validates counterparty against pre-approved allowlist and enforces `spent_today + amount <= daily_limit`.
-
-### 4. Workflow D — Payment Executor (`workflow-d-payment-executor.json`)
-- **Trigger:** Internal `Execute Workflow Trigger` (Called by Workflow C)
-- **Credential Scope:** Stripe Test Secret Key + Supabase Service Role Key
-- **Enforced Checkpoint:** **Checkpoint 4** (Final pre-Stripe execution guard).
-- **Responsibility:** Executes `/v1/payment_intents` on Stripe Test Rails and logs `APPROVED`/`EXECUTED`/`FAILED` transaction rows in Supabase.
-
----
-
-## 🛡️ Security Checkpoint Evaluation Flow
-
-```
-[Incoming Prompt Request]
-          │
-          ▼
-    ┌───────────┐     IS FROZEN? = YES
-    │CHECKPOINT1├──────────────────────────► [HALT: 403 Wallet Frozen (Skip LLM)]
-    └─────┬─────┘
-          │ NO
-          ▼
-    ┌───────────┐     UNLISTED / OVER LIMIT? = YES
-    │CHECKPOINT2├──────────────────────────► [HALT: 403 Policy Violation]
-    └─────┬─────┘
-          │ VALID
-          ▼
-    ┌───────────┐     RACE CONDITION FROZEN? = YES
-    │CHECKPOINT3├──────────────────────────► [HALT: 403 Race Invalidation]
-    └─────┬─────┘
-          │ VALID
-          ▼
-    ┌───────────┐     FINAL PRE-STRIPE FROZEN? = YES
-    │CHECKPOINT4├──────────────────────────► [HALT: 403 Executor Invalidation]
-    └─────┬─────┘
-          │ VALID
-          ▼
-    [STRIPE PAYMENTINTENT EXECUTION & AUDIT LOG]
-```
-
----
-
-## 🌐 Single-URL Unified Deployment Gateway
-
-The application deploys under a **single unified URL** (`http://localhost:3000/`) featuring a compliant **Monochrome Gateway Landing Screen**:
-
-```
-                                ┌──────────────────────────────────────────────┐
-                                │           SINGLE DEPLOYMENT URL              │
-                                │           (e.g., http://localhost:3000)       │
-                                └──────────────────────┬───────────────────────┘
-                                                       │
-                                                       ▼
-                                ┌──────────────────────────────────────────────┐
-                                │         INITIAL GATEWAY LANDING SCREEN       │
-                                │  Select Portal:                              │
-                                │  [Launch Client Portal] [Access Server]      │
-                                └──────────────┬────────────────┬──────────────┘
-                                               │                │
-                        ┌──────────────────────┘                └──────────────────────┐
-                        ▼                                                              ▼
-    ┌───────────────────────────────────────┐                      ┌───────────────────────────────────────┐
-    │       FRONTEND CLIENT PORTAL          │                      │       FRONTEND SERVER PORTAL          │
-    │  - Natural Language Payment Prompts   │                      │  - Corporate Vendor Invoice Operations│
-    │  - Real-time Spend Velocity Tracking  │                      │  - Invoice PDF Generation & Downloads │
-    │  - n8n Live Execution Node Canvas     │                      │  - Real-Time Supabase Audit Ledger    │
-    │  - 3D Circuit Breaker Kill Switch     │                      │  - Server Authorization Rules         │
-    └───────────────────────────────────────┘                      └───────────────────────────────────────┘
-```
-
-### Key Frontend Capabilities:
-- **Monochrome Design System:** Strict compliance with neutral surface tones (`#0A0A0A`, `#141414`, `#1C1C1C`), white primary buttons, and red/green semantic indicators.
-- **n8n Live Workflow Canvas (`N8nPipelineVisualizer.jsx`):** Animated SVG bezier data stream cables with live step-by-step node execution pulses (`14ms`, `220ms`) and interactive node inspector popups.
-- **3D Circuit Breaker Control (`KillSwitchControl.jsx`):** Tactile 3D housing with a flip-open safety cover, triggering emergency freeze actions in **< 50ms**.
-- **Interactive Counterparty Allowlist (`AddCompanyModal.jsx`):** Prominent `+ Add Company` modal allowing real-time verification and Supabase persistence of pre-approved merchants.
+1. **Workflow A — Kill Switch API (`workflow-a-kill-switch-api.json`):** Instantly mutates `policies.is_frozen` in Postgres (`true`/`false`) and appends an auditable `SYSTEM` transaction log row with the operator's name.
+2. **Workflow B — AI Agent Gate (`workflow-b-ai-agent.json`):** Enforces **Checkpoint 1** (Fails fast if `policies.is_frozen === true` before calling Gemini) and converts prompt text into structured JSON.
+3. **Workflow C — Authorization Middleware (`workflow-c-authorization-middleware.json`):** Enforces **Checkpoint 2** (Allowlist & daily spend cap validation) & **Checkpoint 3** (Pre-executor race guard).
+4. **Workflow D — Payment Executor (`workflow-d-payment-executor.json`):** Enforces **Checkpoint 4** (Final pre-Stripe guard) and executes `/v1/payment_intents` on Stripe Test Rails.
 
 ---
 
@@ -187,6 +144,7 @@ The application deploys under a **single unified URL** (`http://localhost:3000/`
 | **AI Intelligence** | `Gemini 2.5 Flash` | Isolated natural language prompt parsing in Workflow B. |
 | **Database** | `Supabase Postgres` | High-availability PostgreSQL audit ledger and policy store. |
 | **Payment Rail** | `Stripe API (Test Mode)` | Real test payment intents with idempotency header enforcement. |
+| **Hosting** | `Vercel` | High-performance production deployment. |
 
 ---
 
@@ -194,7 +152,7 @@ The application deploys under a **single unified URL** (`http://localhost:3000/`
 
 ```
 kill-switch/
-├── frontend/                               # Single Consolidated React/Vite Project
+├── frontend/                               # Consolidated Single React/Vite Project
 │   ├── index.html
 │   ├── package.json
 │   ├── vite.config.js
@@ -202,37 +160,21 @@ kill-switch/
 │       ├── App.jsx                         # Main Router (Gateway / Client / Server Views)
 │       ├── VendorInvoicePortal.jsx         # Consolidated Vendor Server Portal
 │       ├── config.js                       # Environment & Webhook URL Configuration
-│       ├── motionVariants.js               # Shared Motion Tokens
 │       └── components/
-│           ├── GatewayLandingScreen.jsx     # 2-Button Monochrome Landing Screen
+│           ├── GatewayLandingScreen.jsx     # Monochrome Gateway Landing Screen
 │           ├── N8nPipelineVisualizer.jsx   # Live n8n Cloud Canvas Visualizer
 │           ├── AddCompanyModal.jsx         # + Add Verified Counterparty Modal
 │           ├── KillSwitchControl.jsx       # 3D Hardware Circuit Breaker Stop
 │           ├── TransactionLedger.jsx       # Real-time Audit Log Ledger Table
 │           ├── TransactionDetailDrawer.jsx # Glassmorphic Inspection Drawer
-│           ├── MetricsCards.jsx            # Spend Velocity Metrics Cards
-│           ├── SpendProgressBar.jsx        # Visual Spend Cap Velocity Bar
-│           ├── AllowlistCard.jsx           # Counterparty Allowlist Card
-│           ├── SystemArchitectureCard.jsx  # Security Principles Card
-│           ├── Header.jsx                  # Top Bar Header
-│           ├── EmergencyBanner.jsx         # Emergency Frozen Warning Banner
 │           └── OperatorModal.jsx           # Operator Signature Audit Modal
 ├── n8n-workflows/                          # Exported n8n Workflow JSON Topologies
-│   ├── workflow-a-kill-switch-api.json
-│   ├── workflow-b-ai-agent.json
-│   ├── workflow-c-authorization-middleware.json
-│   └── workflow-d-payment-executor.json
-├── sql/                                    # Supabase Postgres Migration Scripts
-│   └── schema.sql                          # Table DDL & Seed Data
-├── README.md
-├── architecture.md
-├── decisions.md
-└── tech_stack_report.md
+└── sql/                                    # Supabase Postgres Migration Scripts
 ```
 
 ---
 
-## ⚡ Quick Start & Local Setup Guide
+## ⚡ Quick Start & Setup Guide
 
 ### 1. Clone & Install Dependencies
 ```bash
@@ -242,26 +184,21 @@ npm install
 ```
 
 ### 2. Configure Environment Variables
-Edit `frontend/src/config.js` to link your live n8n Cloud Webhooks and Supabase Postgres credentials:
+Edit `frontend/src/config.js` to configure webhook endpoints and Supabase credentials:
 ```javascript
 export const CONFIG = {
-  AI_AGENT_WEBHOOK_URL: 'https://abhijitdeshmukh.app.n8n.cloud/webhook/ai-agent',
-  KILL_SWITCH_WEBHOOK_URL: 'https://abhijitdeshmukh.app.n8n.cloud/webhook/kill-switch',
+  AI_AGENT_WEBHOOK_URL: 'https://your-n8n-instance.com/webhook/ai-agent',
+  KILL_SWITCH_WEBHOOK_URL: 'https://your-n8n-instance.com/webhook/kill-switch',
   SUPABASE_URL: 'https://your-supabase-id.supabase.co',
   SUPABASE_ANON_KEY: 'your-anon-key'
 };
 ```
 
-### 3. Launch Development Server
+### 3. Launch Local Development
 ```bash
 npm run dev
 ```
 Open `http://localhost:3000` to access the **Unified Gateway Landing Screen**.
-
-### 4. Build for Production
-```bash
-npm run build
-```
 
 ---
 
