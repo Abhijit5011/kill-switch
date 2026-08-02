@@ -204,36 +204,14 @@ export default function App() {
   if (currentView === 'server') {
     return (
       <div className="min-h-screen flex flex-col bg-slate-900 text-white font-sans">
-        {/* Top View Switcher Ribbon */}
-        <div className="bg-slate-950 text-white border-b border-slate-800 px-4 sm:px-6 py-2.5 flex items-center justify-between text-xs font-mono">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => handleSelectView('gateway')}
-              className="text-slate-400 hover:text-white font-bold flex items-center gap-1 transition-colors"
-            >
-              <span>⬅ Gateway Home</span>
-            </button>
-            <span className="text-slate-700">|</span>
-            <span className="text-zinc-300 font-bold">Single-URL View:</span>
-            <span className="px-2 py-0.5 rounded bg-purple-600 text-white font-bold text-[10px] uppercase">
-              🛡️ FRONTEND-SERVER PORTAL
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => handleSelectView('client')}
-              className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
-            >
-              🚀 Switch to Client Portal
-            </button>
-            <button 
-              onClick={() => handleSelectView('server')}
-              className="px-3 py-1 rounded bg-purple-600 text-white font-bold transition-all"
-            >
-              🛡️ Server Portal
-            </button>
-          </div>
+        {/* Minimal Top Bar: Gateway Home Only */}
+        <div className="bg-[#0A0A0A] text-white border-b border-[#2A2A2A] px-4 sm:px-6 py-2 flex items-center justify-between text-xs font-mono">
+          <button 
+            onClick={() => handleSelectView('gateway')}
+            className="text-[#A1A1AA] hover:text-white font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <span>⬅ Gateway Home</span>
+          </button>
         </div>
 
         {/* Vendor Invoice Portal View */}
@@ -245,36 +223,14 @@ export default function App() {
   // Render Client View (AI Agent Client Portal)
   return (
     <div className="min-h-screen flex flex-col grid-pattern bg-[#0A0A0A] text-[#F5F5F5]">
-      {/* Top View Switcher Ribbon */}
-      <div className="bg-slate-950 text-white border-b border-slate-800 px-4 sm:px-6 py-2.5 flex items-center justify-between text-xs font-mono z-50">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => handleSelectView('gateway')}
-            className="text-slate-400 hover:text-white font-bold flex items-center gap-1 transition-colors"
-          >
-            <span>⬅ Gateway Home</span>
-          </button>
-          <span className="text-slate-700">|</span>
-          <span className="text-zinc-300 font-bold">Single-URL View:</span>
-          <span className="px-2 py-0.5 rounded bg-[#635BFF] text-white font-bold text-[10px] uppercase">
-            🚀 FRONTEND-CLIENT PORTAL
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => handleSelectView('client')}
-            className="px-3 py-1 rounded bg-[#635BFF] text-white font-bold transition-all"
-          >
-            🚀 Client Portal
-          </button>
-          <button 
-            onClick={() => handleSelectView('server')}
-            className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
-          >
-            🛡️ Switch to Server Portal
-          </button>
-        </div>
+      {/* Minimal Top Bar: Gateway Home Only */}
+      <div className="bg-[#0A0A0A] text-white border-b border-[#2A2A2A] px-4 sm:px-6 py-2 flex items-center justify-between text-xs font-mono z-50">
+        <button 
+          onClick={() => handleSelectView('gateway')}
+          className="text-[#A1A1AA] hover:text-white font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <span>⬅ Gateway Home</span>
+        </button>
       </div>
 
       <Header isFrozen={state.is_frozen} />
