@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { checkReducedMotion } from '../config';
+import { checkReducedMotion, CONFIG } from '../config';
 import { SPRING, DURATION, EASING } from '../motionVariants';
 
 export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, isFrozen, lastDecision }) {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [copied, setCopied] = useState(false);
   const shouldReduceMotion = checkReducedMotion();
+
+  const copyWebhookUrl = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(CONFIG.AI_AGENT_WEBHOOK_URL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   // Workflow Topology Nodes (Exact names from n8n-workflows/*.json)
   const workflowNodes = [
@@ -16,7 +25,7 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
       credential: 'Gemini API Key ONLY (0 DB Write, 0 Stripe)',
       checkpoint: 'Checkpoint 1 (Pre-LLM Freeze Guard)',
       description: 'Parses natural language prompt into {recipient, amount}. Rejects at Checkpoint 1 if wallet is frozen before invoking Gemini.',
-      triggerType: 'Public Webhook (POST /webhook/ai-agent)',
+      triggerType: `Public Webhook: POST ${CONFIG.AI_AGENT_WEBHOOK_URL}`,
       stepIndex: 1,
       nodesInWorkflow: ['AI Agent Webhook', 'Read Policy (checkpoint 1)', 'Gemini 2.5 Flash: Extract Payment Fields', 'Execute Workflow C']
     },
@@ -27,7 +36,7 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
       credential: 'Supabase Service Role Key ONLY (Cannot call Stripe)',
       checkpoint: 'Checkpoint 2 & Checkpoint 3 (Pre-Executor Race Guard)',
       description: 'Re-reads policies.is_frozen from Postgres. Validates recipient against allowlist and spent_today + amount <= daily_limit.',
-      triggerType: 'Internal Execute Workflow Trigger Only',
+      triggerType: 'Internal Execute Workflow Trigger Only (Called by Workflow B)',
       stepIndex: 2,
       nodesInWorkflow: ['Execute Workflow Trigger', 'Read Policy (checkpoint 2)', 'Check Allowlist', 'Evaluate Allowlist + Limit', 'Re-read Policy (checkpoint 3)', 'Execute Workflow D']
     },
@@ -38,7 +47,7 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
       credential: 'Stripe Test Secret Key + Supabase Service Role Key',
       checkpoint: 'Checkpoint 4 (Final Pre-Stripe Execution Guard)',
       description: 'Re-checks is_frozen one final time before invoking Stripe /v1/payment_intents. Idempotency guarded by request_id.',
-      triggerType: 'Internal Execute Workflow Trigger Only',
+      triggerType: 'Internal Execute Workflow Trigger Only (Called by Workflow C)',
       stepIndex: 3,
       nodesInWorkflow: ['Execute Workflow Trigger', 'Idempotency Check', 'Re-read Policy (checkpoint 4)', 'Stripe: Create PaymentIntent', 'Log EXECUTED/FAILED']
     },
@@ -49,7 +58,7 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
       credential: 'Supabase Service Role Key ONLY',
       checkpoint: 'Mutates policies.is_frozen & Logs SYSTEM Audit Event',
       description: 'Invoked by Emergency Stop / Unfreeze buttons. Instantly updates policies.is_frozen and records auditable actor row.',
-      triggerType: 'Public Webhook (POST /webhook/kill-switch)',
+      triggerType: `Public Webhook: POST ${CONFIG.KILL_SWITCH_WEBHOOK_URL}`,
       stepIndex: 'SYSTEM',
       nodesInWorkflow: ['Kill Switch Webhook', 'Validate Request', 'Update policies.is_frozen', 'Insert Audit Log Row', 'Respond to Dashboard']
     }
@@ -88,14 +97,14 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
       transition={{ duration: DURATION.deliberate, ease: EASING.entrance, delay: 0.18 }}
       className="glass-panel rounded-2xl p-5 space-y-4 scanline overflow-hidden relative"
     >
-      {/* Header & Legend */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#2A2A2A] pb-3">
+      {/* Header & Live Webhook URL Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2A2A2A] pb-3">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="font-display font-bold text-sm uppercase tracking-wide text-[#F5F5F5]">n8n Workflow Execution Visualizer</h2>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#1C1C1C] border border-[#2A2A2A] text-[#8A8A8E]">Live Topology</span>
           </div>
-          <p className="text-xs text-[#8A8A8E]">Real-time execution tracing across Workflows A, B, C, and D</p>
+          <p className="text-xs text-[#8A8A8E] mt-0.5">Real-time execution tracing across Workflows A, B, C, and D</p>
         </div>
 
         {/* Legend */}
@@ -119,10 +128,25 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
         </div>
       </div>
 
-      {/* SVG Connection Cables & Data Packets (Phase 2) */}
-      <div className="relative py-2 space-y-3">
-        
-        {/* Workflow Pipeline Grid */}
+      {/* Visible Webhook Endpoint Chip */}
+      <div className="p-2.5 rounded-xl bg-[#141414] border border-[#2A2A2A] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+        <div className="flex items-center gap-2 truncate">
+          <span className="text-[#22C55E] font-bold text-[10px] uppercase px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/40">
+            ⚡ LIVE WEBHOOK
+          </span>
+          <span className="text-[#8A8A8E] text-[11px]">n8n Cloud Agent Endpoint:</span>
+          <span className="text-[#F5F5F5] font-semibold truncate select-all">{CONFIG.AI_AGENT_WEBHOOK_URL}</span>
+        </div>
+        <button 
+          onClick={copyWebhookUrl}
+          className="px-2.5 py-1 rounded bg-[#1C1C1C] hover:bg-[#2A2A2A] border border-[#2A2A2A] text-[10px] font-bold text-[#F5F5F5] transition-colors"
+        >
+          {copied ? '✓ Copied' : 'Copy URL'}
+        </button>
+      </div>
+
+      {/* Topology Graph */}
+      <div className="relative py-1 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative">
           {workflowNodes.slice(0, 3).map((node) => {
             const status = getNodeStatus(node);
@@ -219,7 +243,7 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
 
       </div>
 
-      {/* Phase 3 — Shared Layout Inline Node Inspector Drawer */}
+      {/* Shared Layout Inline Node Inspector Drawer */}
       <AnimatePresence>
         {selectedNode && (
           <motion.div
@@ -255,8 +279,8 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
                 className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]"
               >
                 <div className="space-y-1">
-                  <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Trigger Mechanism</span>
-                  <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold">{selectedNode.triggerType}</div>
+                  <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Trigger Mechanism & Live Webhook URL</span>
+                  <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold break-all select-all">{selectedNode.triggerType}</div>
                 </div>
 
                 <div className="space-y-1">
