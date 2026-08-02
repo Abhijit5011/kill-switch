@@ -128,22 +128,7 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
         </div>
       </div>
 
-      {/* Visible Webhook Endpoint Chip */}
-      <div className="p-2.5 rounded-xl bg-[#141414] border border-[#2A2A2A] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-        <div className="flex items-center gap-2 truncate">
-          <span className="text-[#22C55E] font-bold text-[10px] uppercase px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/40">
-            ⚡ LIVE WEBHOOK
-          </span>
-          <span className="text-[#8A8A8E] text-[11px]">n8n Cloud Agent Endpoint:</span>
-          <span className="text-[#F5F5F5] font-semibold truncate select-all">{CONFIG.AI_AGENT_WEBHOOK_URL}</span>
-        </div>
-        <button 
-          onClick={copyWebhookUrl}
-          className="px-2.5 py-1 rounded bg-[#1C1C1C] hover:bg-[#2A2A2A] border border-[#2A2A2A] text-[10px] font-bold text-[#F5F5F5] transition-colors"
-        >
-          {copied ? '✓ Copied' : 'Copy URL'}
-        </button>
-      </div>
+
 
       {/* SVG Connecting Cables & Topology Graph */}
       <div className="relative py-2 space-y-3">
