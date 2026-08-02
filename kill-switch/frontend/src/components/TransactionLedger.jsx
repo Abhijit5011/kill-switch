@@ -2,10 +2,12 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatMoney, formatTime, checkReducedMotion } from '../config';
 import { SPRING, DURATION, EASING } from '../motionVariants';
+import TransactionDetailDrawer from './TransactionDetailDrawer';
 
 export default function TransactionLedger({ transactions }) {
   const [activeTab, setActiveTab] = useState('ALL');
   const [searchFilter, setSearchFilter] = useState('');
+  const [selectedTxForDrawer, setSelectedTxForDrawer] = useState(null);
   const shouldReduceMotion = checkReducedMotion();
   const knownTxIdsRef = useRef(new Set(transactions.map(t => t.id || t.created_at)));
 
@@ -34,12 +36,12 @@ export default function TransactionLedger({ transactions }) {
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: DURATION.deliberate, ease: EASING.entrance, delay: 0.28 }}
-      className="glass-panel rounded-2xl p-5 scanline overflow-hidden space-y-4"
+      className="glass-panel rounded-2xl p-5 scanline overflow-hidden space-y-4 shadow-sm"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="font-display font-bold text-sm uppercase tracking-wide text-[#F5F5F5]">Authorization & Transaction Ledger</h2>
-          <p className="text-xs text-[#8A8A8E]">Immutable audit trail of all agent calls & system controls</p>
+          <p className="text-xs text-[#8A8A8E]">Immutable audit trail — click any log row to inspect record window</p>
         </div>
 
         {/* Tab Buttons */}
@@ -72,7 +74,7 @@ export default function TransactionLedger({ transactions }) {
         className="w-full px-4 py-2.5 rounded-xl bg-[#141414] border border-[#2A2A2A] text-xs font-mono text-[#F5F5F5] placeholder-[#8A8A8E] focus:outline-none focus:border-zinc-500 shadow-inner"
       />
 
-      {/* Table Content with Phase 6 Tab Crossfade */}
+      {/* Table Content */}
       <motion.div 
         key={activeTab}
         initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
@@ -110,7 +112,8 @@ export default function TransactionLedger({ transactions }) {
                       animate={{ opacity: 1, y: 0, backgroundColor: "rgba(20, 20, 20, 1)" }}
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: DURATION.deliberate, ease: EASING.entrance }}
-                      className="hover:bg-[#1C1C1C] transition-colors"
+                      onClick={() => setSelectedTxForDrawer(tx)}
+                      className="hover:bg-[#1C1C1C] transition-colors cursor-pointer"
                     >
                       <td className="py-3.5 px-4 text-[#8A8A8E] font-medium tabular-nums">{formatTime(tx.created_at)}</td>
                       <td className="py-3.5 px-4 font-bold text-[#F5F5F5]">
@@ -135,6 +138,14 @@ export default function TransactionLedger({ transactions }) {
           </tbody>
         </table>
       </motion.div>
+
+      {/* Transaction Detail Inspector Drawer Modal */}
+      {selectedTxForDrawer && (
+        <TransactionDetailDrawer 
+          transaction={selectedTxForDrawer} 
+          onClose={() => setSelectedTxForDrawer(null)} 
+        />
+      )}
     </motion.div>
   );
 }

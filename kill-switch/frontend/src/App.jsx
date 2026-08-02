@@ -28,6 +28,7 @@ export default function App() {
 
   // UI States
   const [isSending, setIsSending] = useState(false);
+  const [activeWorkflowStep, setActiveWorkflowStep] = useState(null);
   const [agentResponse, setAgentResponse] = useState(null);
   const [actorModal, setActorModal] = useState({ open: false, action: 'freeze', actorName: '' });
   const [notification, setNotification] = useState(null);
@@ -132,54 +133,6 @@ export default function App() {
     }
   };
 
-  // Send Prompt to AI Agent Workflow
-  const handleSendAgentRequest = async (promptText) => {
-    if (!promptText || !promptText.trim()) return;
-
-    setIsSending(true);
-    setAgentResponse(null);
-
-    if (state.is_frozen) {
-      setTimeout(() => {
-        setIsSending(false);
-        setAgentResponse({
-          decision: 'REJECTED',
-          reason: 'Wallet is frozen. The AI agent will not even attempt to interpret payment requests while the Emergency Kill Switch is active.'
-        });
-      }, 500);
-      return;
-    }
-
-    if (!CONFIG.AI_AGENT_WEBHOOK_URL || CONFIG.AI_AGENT_WEBHOOK_URL.includes('REPLACE_ME')) {
-      setTimeout(() => {
-        setIsSending(false);
-        setAgentResponse({
-          decision: 'DEMO MODE',
-          reason: 'Please configure CONFIG.AI_AGENT_WEBHOOK_URL to link to n8n Workflow B.'
-        });
-      }, 800);
-      return;
-    }
-
-    try {
-      const res = await fetch(CONFIG.AI_AGENT_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptText })
-      });
-      const data = await res.json();
-      setAgentResponse(data);
-      fetchSupabaseData();
-    } catch (err) {
-      setAgentResponse({
-        decision: 'FAILED',
-        reason: 'Webhook execution failed. Please verify n8n Workflow B activation.'
-      });
-    } finally {
-      setIsSending(false);
-    }
-  };
-
   const remainingBudget = Math.max(0, state.daily_limit - state.spent_today);
   const budgetPercentage = Math.min(100, Math.round((state.spent_today / state.daily_limit) * 100));
 
@@ -191,9 +144,8 @@ export default function App() {
 
       {notification && (
         <div className="fixed top-20 right-6 z-50 animate-bounce">
-          <div className={`px-4 py-3 rounded-xl border text-sm font-mono shadow-2xl flex items-center gap-3 ${
-            notification.type === 'error' ? 'bg-red-950/90 border-red-500 text-red-100' : 'bg-emerald-950/90 border-emerald-500 text-emerald-100'
-          }`}>
+          <div className={`px-4 py-3 rounded-xl border text-sm font-mono shadow-2xl flex items-center gap-3 ${notification.type === 'error' ? 'bg-red-950/90 border-red-500 text-red-100' : 'bg-emerald-950/90 border-emerald-500 text-emerald-100'
+            }`}>
             <span>{notification.type === 'error' ? '⚠️' : '✅'}</span>
             <span>{notification.msg}</span>
           </div>
@@ -201,45 +153,43 @@ export default function App() {
       )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6 flex-1 w-full">
-        
+
         {/* Top Hero Row: Metrics & Velocity Bar */}
         <div className="space-y-6">
-          <MetricsCards 
-            dailyLimit={state.daily_limit} 
-            spentToday={state.spent_today} 
-            remainingBudget={remainingBudget} 
-            budgetPercentage={budgetPercentage} 
+          <MetricsCards
+            dailyLimit={state.daily_limit}
+            spentToday={state.spent_today}
+            remainingBudget={remainingBudget}
+            budgetPercentage={budgetPercentage}
           />
 
-          <SpendProgressBar 
-            spentToday={state.spent_today} 
-            dailyLimit={state.daily_limit} 
-            budgetPercentage={budgetPercentage} 
+          <SpendProgressBar
+            spentToday={state.spent_today}
+            dailyLimit={state.daily_limit}
+            budgetPercentage={budgetPercentage}
           />
         </div>
 
-        {/* HERO FEATURE: Expanded Live n8n Workflow Execution Visualizer */}
-        <N8nPipelineVisualizer 
-          isSending={isSending} 
-          isFrozen={state.is_frozen} 
-          lastDecision={agentResponse} 
-          onTriggerRequest={handleSendAgentRequest}
-          onTriggerKillSwitch={(action) => setActorModal({ open: true, action, actorName: '' })}
-        />
-
-        {/* Main Dashboard Section (8 : 4 Grid) */}
+        {/* Balanced Main Content Grid (8 : 4 Split) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* Left Column (8 cols): Transaction Ledger */}
+
+          {/* Left Column (8 cols): Real n8n Visualizer & Transaction Ledger */}
           <div className="lg:col-span-8 space-y-6">
+            <N8nPipelineVisualizer
+              activeWorkflowStep={activeWorkflowStep}
+              isSending={isSending}
+              isFrozen={state.is_frozen}
+              lastDecision={agentResponse}
+            />
+
             <TransactionLedger transactions={state.transactions} />
           </div>
 
           {/* Right Column (4 cols): Circuit Breaker Control, Allowlist & Compliance */}
           <div className="lg:col-span-4 space-y-6">
-            <KillSwitchControl 
-              isFrozen={state.is_frozen} 
-              onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })} 
+            <KillSwitchControl
+              isFrozen={state.is_frozen}
+              onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })}
             />
 
             <AllowlistCard allowlist={state.allowlist} />
@@ -255,10 +205,10 @@ export default function App() {
         Stripe Test Mode · Supabase Postgres · n8n Cloud · Gemini 2.5 Flash
       </footer>
 
-      <OperatorModal 
-        actorModal={actorModal} 
-        setActorModal={setActorModal} 
-        onSubmit={handleKillSwitchSubmit} 
+      <OperatorModal
+        actorModal={actorModal}
+        setActorModal={setActorModal}
+        onSubmit={handleKillSwitchSubmit}
       />
     </div>
   );
