@@ -28,7 +28,6 @@ export default function App() {
 
   // UI States
   const [isSending, setIsSending] = useState(false);
-  const [activeWorkflowStep, setActiveWorkflowStep] = useState(null);
   const [agentResponse, setAgentResponse] = useState(null);
   const [actorModal, setActorModal] = useState({ open: false, action: 'freeze', actorName: '' });
   const [notification, setNotification] = useState(null);
@@ -133,6 +132,54 @@ export default function App() {
     }
   };
 
+  // Send Prompt to AI Agent Workflow
+  const handleSendAgentRequest = async (promptText) => {
+    if (!promptText || !promptText.trim()) return;
+
+    setIsSending(true);
+    setAgentResponse(null);
+
+    if (state.is_frozen) {
+      setTimeout(() => {
+        setIsSending(false);
+        setAgentResponse({
+          decision: 'REJECTED',
+          reason: 'Wallet is frozen. The AI agent will not even attempt to interpret payment requests while the Emergency Kill Switch is active.'
+        });
+      }, 500);
+      return;
+    }
+
+    if (!CONFIG.AI_AGENT_WEBHOOK_URL || CONFIG.AI_AGENT_WEBHOOK_URL.includes('REPLACE_ME')) {
+      setTimeout(() => {
+        setIsSending(false);
+        setAgentResponse({
+          decision: 'DEMO MODE',
+          reason: 'Please configure CONFIG.AI_AGENT_WEBHOOK_URL to link to n8n Workflow B.'
+        });
+      }, 800);
+      return;
+    }
+
+    try {
+      const res = await fetch(CONFIG.AI_AGENT_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptText })
+      });
+      const data = await res.json();
+      setAgentResponse(data);
+      fetchSupabaseData();
+    } catch (err) {
+      setAgentResponse({
+        decision: 'FAILED',
+        reason: 'Webhook execution failed. Please verify n8n Workflow B activation.'
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const remainingBudget = Math.max(0, state.daily_limit - state.spent_today);
   const budgetPercentage = Math.min(100, Math.round((state.spent_today / state.daily_limit) * 100));
 
@@ -171,18 +218,20 @@ export default function App() {
           />
         </div>
 
-        {/* Balanced Main Content Grid (8 : 4 Split) */}
+        {/* HERO FEATURE: Expanded Live n8n Workflow Execution Visualizer */}
+        <N8nPipelineVisualizer 
+          isSending={isSending} 
+          isFrozen={state.is_frozen} 
+          lastDecision={agentResponse} 
+          onTriggerRequest={handleSendAgentRequest}
+          onTriggerKillSwitch={(action) => setActorModal({ open: true, action, actorName: '' })}
+        />
+
+        {/* Main Dashboard Section (8 : 4 Grid) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
-          {/* Left Column (8 cols): Real n8n Visualizer & Transaction Ledger */}
+          {/* Left Column (8 cols): Transaction Ledger */}
           <div className="lg:col-span-8 space-y-6">
-            <N8nPipelineVisualizer 
-              activeWorkflowStep={activeWorkflowStep} 
-              isSending={isSending} 
-              isFrozen={state.is_frozen} 
-              lastDecision={agentResponse} 
-            />
-
             <TransactionLedger transactions={state.transactions} />
           </div>
 
