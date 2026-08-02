@@ -7,6 +7,7 @@ import N8nPipelineVisualizer from './components/N8nPipelineVisualizer';
 import AllowlistCard from './components/AllowlistCard';
 import TransactionLedger from './components/TransactionLedger';
 import KillSwitchControl from './components/KillSwitchControl';
+import SystemArchitectureCard from './components/SystemArchitectureCard';
 import OperatorModal from './components/OperatorModal';
 import { CONFIG } from './config';
 
@@ -152,10 +153,10 @@ export default function App() {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 w-full">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6 flex-1 w-full">
         
-        {/* Left Column: Metrics, Velocity Bar, n8n Pipeline Visualizer, Allowlist & Transaction Ledger */}
-        <div className="lg:col-span-8 space-y-6">
+        {/* Top Hero Row: Metrics & Velocity Bar */}
+        <div className="space-y-6">
           <MetricsCards 
             dailyLimit={state.daily_limit} 
             spentToday={state.spent_today} 
@@ -168,26 +169,35 @@ export default function App() {
             dailyLimit={state.daily_limit} 
             budgetPercentage={budgetPercentage} 
           />
-
-          {/* Real n8n Workflow Topology Visualizer */}
-          <N8nPipelineVisualizer 
-            activeWorkflowStep={activeWorkflowStep} 
-            isSending={isSending} 
-            isFrozen={state.is_frozen} 
-            lastDecision={agentResponse} 
-          />
-
-          <AllowlistCard allowlist={state.allowlist} />
-
-          <TransactionLedger transactions={state.transactions} />
         </div>
 
-        {/* Right Column: Physical Emergency Kill Switch */}
-        <div className="lg:col-span-4 space-y-6">
-          <KillSwitchControl 
-            isFrozen={state.is_frozen} 
-            onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })} 
-          />
+        {/* Balanced Main Content Grid (8 : 4 Split) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* Left Column (8 cols): Real n8n Visualizer & Transaction Ledger */}
+          <div className="lg:col-span-8 space-y-6">
+            <N8nPipelineVisualizer 
+              activeWorkflowStep={activeWorkflowStep} 
+              isSending={isSending} 
+              isFrozen={state.is_frozen} 
+              lastDecision={agentResponse} 
+            />
+
+            <TransactionLedger transactions={state.transactions} />
+          </div>
+
+          {/* Right Column (4 cols): Circuit Breaker Control, Allowlist & Compliance */}
+          <div className="lg:col-span-4 space-y-6">
+            <KillSwitchControl 
+              isFrozen={state.is_frozen} 
+              onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })} 
+            />
+
+            <AllowlistCard allowlist={state.allowlist} />
+
+            <SystemArchitectureCard />
+          </div>
+
         </div>
 
       </main>

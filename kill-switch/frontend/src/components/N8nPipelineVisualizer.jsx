@@ -95,7 +95,7 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: DURATION.deliberate, ease: EASING.entrance, delay: 0.18 }}
-      className="glass-panel rounded-2xl p-5 space-y-4 scanline overflow-hidden relative"
+      className="glass-panel rounded-2xl p-5 space-y-4 scanline overflow-hidden relative shadow-sm"
     >
       {/* Header & Live Webhook URL Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2A2A2A] pb-3">
@@ -145,9 +145,31 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
         </button>
       </div>
 
-      {/* Topology Graph */}
-      <div className="relative py-1 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative">
+      {/* SVG Connecting Cables & Topology Graph */}
+      <div className="relative py-2 space-y-3">
+
+        {/* Animated SVG Path Connecting Cables */}
+        <svg className="hidden md:block absolute top-1/2 left-0 right-0 w-full h-8 -translate-y-1/2 pointer-events-none z-0 overflow-visible opacity-30">
+          <line x1="16%" y1="50%" x2="50%" y2="50%" stroke="#8A8A8E" strokeWidth="2" strokeDasharray="4 4" />
+          <line x1="50%" y1="50%" x2="84%" y2="50%" stroke="#8A8A8E" strokeWidth="2" strokeDasharray="4 4" />
+          
+          {/* Data Packets */}
+          {isSending && !shouldReduceMotion && (
+            <>
+              <circle r="4" fill="#FFFFFF">
+                <animate attributeName="cx" values="16%; 50%" dur="0.8s" repeatCount="indefinite" />
+                <animate attributeName="cy" values="50%; 50%" dur="0.8s" repeatCount="indefinite" />
+              </circle>
+              <circle r="4" fill="#FFFFFF">
+                <animate attributeName="cx" values="50%; 84%" dur="0.8s" begin="0.3s" repeatCount="indefinite" />
+                <animate attributeName="cy" values="50%; 50%" dur="0.8s" begin="0.3s" repeatCount="indefinite" />
+              </circle>
+            </>
+          )}
+        </svg>
+        
+        {/* Workflow Pipeline Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative z-10">
           {workflowNodes.slice(0, 3).map((node) => {
             const status = getNodeStatus(node);
             const isSelected = selectedNodeId === node.id;
@@ -221,7 +243,7 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
               whileHover={shouldReduceMotion ? {} : { scale: 1.01 }}
               whileTap={shouldReduceMotion ? {} : { scale: 0.99 }}
               onClick={() => setSelectedNodeId(isSysSelected ? null : sysNode.id)}
-              className={`p-3.5 rounded-xl ${sysStatus.bg} ${sysStatus.border} border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2`}
+              className={`p-3.5 rounded-xl ${sysStatus.bg} ${sysStatus.border} border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 relative z-10`}
             >
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono font-bold text-red-400 bg-red-950/80 px-2 py-0.5 rounded border border-red-500/30">
