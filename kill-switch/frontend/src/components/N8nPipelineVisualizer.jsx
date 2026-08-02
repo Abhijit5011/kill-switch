@@ -1,33 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { checkReducedMotion, CONFIG } from '../config';
+import { checkReducedMotion } from '../config';
 import { SPRING, DURATION, EASING } from '../motionVariants';
 
-export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, isFrozen, lastDecision }) {
+export default function N8nPipelineVisualizer({ 
+  isSending, 
+  isFrozen, 
+  lastDecision, 
+  onTriggerRequest, 
+  onTriggerKillSwitch 
+}) {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [activeSubNodeId, setActiveSubNodeId] = useState(null);
+  const [customPrompt, setCustomPrompt] = useState('Pay Acme Corp $150');
   const shouldReduceMotion = checkReducedMotion();
 
-  const copyWebhookUrl = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(CONFIG.AI_AGENT_WEBHOOK_URL);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  // Granular Sub-Node Execution Animation Pacing
+  useEffect(() => {
+    if (!isSending) {
+      if (lastDecision) {
+        if (lastDecision.decision === 'APPROVED') setActiveSubNodeId('D5');
+        else if (lastDecision.reason?.includes('frozen')) setActiveSubNodeId('B2');
+        else if (lastDecision.reason?.includes('allowlist') || lastDecision.reason?.includes('limit')) setActiveSubNodeId('C3');
+        else setActiveSubNodeId(null);
+      } else {
+        setActiveSubNodeId(null);
+      }
+      return;
     }
-  };
 
-  // Workflow Topology Nodes (Exact names from n8n-workflows/*.json)
+    /* Presentational pacing during real async wait, not synthetic data */
+    const sequence = ['B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'C5', 'D1', 'D2', 'D3', 'D4', 'D5'];
+    let step = 0;
+
+    const timer = setInterval(() => {
+      if (step < sequence.length) {
+        setActiveSubNodeId(sequence[step]);
+        step++;
+      } else {
+        clearInterval(timer);
+      }
+    }, 120);
+
+    return () => clearInterval(timer);
+  }, [isSending, lastDecision]);
+
+  // Sub-Nodes Data Structure
   const workflowNodes = [
     {
       id: 'wf-b',
-      title: 'Workflow B — AI Agent',
-      type: 'LLM Extraction Gate',
+      title: 'Workflow B — AI Agent Gate',
+      type: 'LLM Extraction & Delegate',
       credential: 'Gemini API Key ONLY (0 DB Write, 0 Stripe)',
       checkpoint: 'Checkpoint 1 (Pre-LLM Freeze Guard)',
       description: 'Parses natural language prompt into {recipient, amount}. Rejects at Checkpoint 1 if wallet is frozen before invoking Gemini.',
-      triggerType: `Public Webhook: POST ${CONFIG.AI_AGENT_WEBHOOK_URL}`,
-      stepIndex: 1,
-      nodesInWorkflow: ['AI Agent Webhook', 'Read Policy (checkpoint 1)', 'Gemini 2.5 Flash: Extract Payment Fields', 'Execute Workflow C']
+      triggerType: 'Public Webhook (POST /webhook/ai-agent)',
+      subNodes: [
+        { id: 'B1', name: 'Webhook Ingestion', type: 'webhook', desc: 'POST /webhook/ai-agent' },
+        { id: 'B2', name: 'Checkpoint 1 Read Policy', type: 'supabase', desc: 'Fail-fast if frozen' },
+        { id: 'B3', name: 'Gemini 2.5 Flash', type: 'llm', desc: 'Extract {recipient, amount}' },
+        { id: 'B4', name: 'Delegate to Workflow C', type: 'execute', desc: 'Invoke Middleware' }
+      ]
     },
     {
       id: 'wf-c',
@@ -36,9 +69,14 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
       credential: 'Supabase Service Role Key ONLY (Cannot call Stripe)',
       checkpoint: 'Checkpoint 2 & Checkpoint 3 (Pre-Executor Race Guard)',
       description: 'Re-reads policies.is_frozen from Postgres. Validates recipient against allowlist and spent_today + amount <= daily_limit.',
-      triggerType: 'Internal Execute Workflow Trigger Only (Called by Workflow B)',
-      stepIndex: 2,
-      nodesInWorkflow: ['Execute Workflow Trigger', 'Read Policy (checkpoint 2)', 'Check Allowlist', 'Evaluate Allowlist + Limit', 'Re-read Policy (checkpoint 3)', 'Execute Workflow D']
+      triggerType: 'Internal Execute Workflow Trigger Only',
+      subNodes: [
+        { id: 'C1', name: 'Execute Trigger', type: 'trigger', desc: 'Sub-workflow entry' },
+        { id: 'C2', name: 'Checkpoint 2 Read Policy', type: 'supabase', desc: 'Verify is_frozen' },
+        { id: 'C3', name: 'DB Allowlist & Cap Check', type: 'supabase', desc: 'Validate counterparty' },
+        { id: 'C4', name: 'Checkpoint 3 Race Guard', type: 'supabase', desc: 'Re-verify before D' },
+        { id: 'C5', name: 'Delegate to Workflow D', type: 'execute', desc: 'Invoke Executor' }
+      ]
     },
     {
       id: 'wf-d',
@@ -47,9 +85,14 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
       credential: 'Stripe Test Secret Key + Supabase Service Role Key',
       checkpoint: 'Checkpoint 4 (Final Pre-Stripe Execution Guard)',
       description: 'Re-checks is_frozen one final time before invoking Stripe /v1/payment_intents. Idempotency guarded by request_id.',
-      triggerType: 'Internal Execute Workflow Trigger Only (Called by Workflow C)',
-      stepIndex: 3,
-      nodesInWorkflow: ['Execute Workflow Trigger', 'Idempotency Check', 'Re-read Policy (checkpoint 4)', 'Stripe: Create PaymentIntent', 'Log EXECUTED/FAILED']
+      triggerType: 'Internal Execute Workflow Trigger Only',
+      subNodes: [
+        { id: 'D1', name: 'Execute Trigger', type: 'trigger', desc: 'Sub-workflow entry' },
+        { id: 'D2', name: 'Idempotency Guard', type: 'code', desc: 'Check request_id' },
+        { id: 'D3', name: 'Checkpoint 4 Read Policy', type: 'supabase', desc: 'Pre-Stripe check' },
+        { id: 'D4', name: 'Stripe PaymentIntent', type: 'stripe', desc: '/v1/payment_intents' },
+        { id: 'D5', name: 'Log Audit Transaction', type: 'supabase', desc: 'Write transaction_logs' }
+      ]
     },
     {
       id: 'wf-a',
@@ -58,193 +101,272 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
       credential: 'Supabase Service Role Key ONLY',
       checkpoint: 'Mutates policies.is_frozen & Logs SYSTEM Audit Event',
       description: 'Invoked by Emergency Stop / Unfreeze buttons. Instantly updates policies.is_frozen and records auditable actor row.',
-      triggerType: `Public Webhook: POST ${CONFIG.KILL_SWITCH_WEBHOOK_URL}`,
-      stepIndex: 'SYSTEM',
-      nodesInWorkflow: ['Kill Switch Webhook', 'Validate Request', 'Update policies.is_frozen', 'Insert Audit Log Row', 'Respond to Dashboard']
+      triggerType: 'Public Webhook (POST /webhook/kill-switch)',
+      subNodes: [
+        { id: 'A1', name: 'Kill Switch Webhook', type: 'webhook', desc: 'POST /webhook/kill-switch' },
+        { id: 'A2', name: 'Validate Request', type: 'code', desc: 'Validate actor & action' },
+        { id: 'A3', name: 'Mutate policies.is_frozen', type: 'supabase', desc: 'Set is_frozen in DB' },
+        { id: 'A4', name: 'Log SYSTEM Audit Event', type: 'supabase', desc: 'Record actor in logs' }
+      ]
     }
   ];
 
   const selectedNode = workflowNodes.find(n => n.id === selectedNodeId);
 
-  // Helper to determine node execution state
-  const getNodeStatus = (node) => {
-    if (isFrozen) {
-      if (node.id === 'wf-a') return { state: 'FROZEN', label: 'ARMED / FROZEN', color: 'text-[#EF4444]', border: 'border-[#EF4444]', bg: 'bg-red-950/40' };
-      if (activeWorkflowStep === node.stepIndex) return { state: 'FROZEN', label: 'BLOCKED AT CHECKPOINT', color: 'text-[#EF4444]', border: 'border-[#EF4444]', bg: 'bg-red-950/40' };
-      return { state: 'IDLE', label: 'FROZEN INHIBITED', color: 'text-[#8A8A8E]', border: 'border-[#2A2A2A]', bg: 'bg-[#141414]' };
-    }
-
-    if (isSending && activeWorkflowStep === node.stepIndex) {
-      return { state: 'PROCESSING', label: 'PROCESSING', color: 'text-white', border: 'border-white shadow-[0_0_15px_rgba(255,255,255,0.2)]', bg: 'bg-[#1C1C1C]' };
-    }
-
-    if (lastDecision) {
-      if (lastDecision.decision === 'APPROVED' && typeof node.stepIndex === 'number') {
-        return { state: 'PASS', label: 'CHECKPOINT PASS', color: 'text-[#22C55E]', border: 'border-emerald-500/50', bg: 'bg-emerald-950/20' };
-      }
-      if (lastDecision.decision === 'REJECTED' && activeWorkflowStep === node.stepIndex) {
-        return { state: 'REJECTED', label: 'REJECTED', color: 'text-[#EF4444]', border: 'border-[#EF4444]', bg: 'bg-red-950/30' };
-      }
-    }
-
-    return { state: 'IDLE', label: 'IDLE', color: 'text-[#8A8A8E]', border: 'border-[#2A2A2A]', bg: 'bg-[#141414]' };
-  };
-
   return (
-    <motion.div
+    <motion.div 
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: DURATION.deliberate, ease: EASING.entrance, delay: 0.18 }}
-      className="glass-panel rounded-2xl p-5 space-y-4 scanline overflow-hidden relative shadow-sm"
+      className="glass-panel rounded-2xl p-6 space-y-6 scanline overflow-hidden relative shadow-lg border border-[#2A2A2A]"
     >
-      {/* Header & Live Webhook URL Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2A2A2A] pb-3">
+      {/* Visualizer Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#2A2A2A] pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-display font-bold text-sm uppercase tracking-wide text-[#F5F5F5]">n8n Workflow Execution Visualizer</h2>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#1C1C1C] border border-[#2A2A2A] text-[#8A8A8E]">Live Topology</span>
+            <h2 className="font-display font-bold text-base uppercase tracking-wide text-[#F5F5F5]">n8n Live Workflow Visualizer</h2>
+            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-[#22C55E] font-bold animate-pulse">
+              ● LIVE NODE TOPOLOGY
+            </span>
           </div>
-          <p className="text-xs text-[#8A8A8E] mt-0.5">Real-time execution tracing across Workflows A, B, C, and D</p>
+          <p className="text-xs text-[#8A8A8E] mt-1">Real-time execution tracing across Workflows A, B, C, and D (Positioned below Ledger)</p>
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-3 text-[10px] font-mono text-[#8A8A8E]">
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-3 text-[11px] font-mono text-[#8A8A8E] bg-[#141414] px-3 py-1.5 rounded-xl border border-[#2A2A2A]">
+          <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#8A8A8E]"></span>
             <span>IDLE</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
             <span className="text-white font-bold">PROCESSING</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#22C55E]"></span>
             <span className="text-[#22C55E] font-bold">PASS</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#EF4444]"></span>
             <span className="text-[#EF4444] font-bold">REJECTED</span>
           </div>
         </div>
       </div>
 
+      {/* Interactive Simulation & Trigger Controller Bar */}
+      <div className="p-4 rounded-xl bg-[#141414] border border-[#2A2A2A] space-y-3 font-mono">
+        <div className="flex items-center justify-between text-xs text-[#8A8A8E] font-bold uppercase tracking-wider">
+          <span>⚡ Live Execution Trigger Bar</span>
+          <span className="text-emerald-400">Click scenario to launch live n8n execution flow</span>
+        </div>
 
+        {/* Preset Triggers */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+          <motion.button
+            whileHover={shouldReduceMotion || isSending ? {} : { scale: 1.02 }}
+            whileTap={shouldReduceMotion || isSending ? {} : { scale: 0.97 }}
+            onClick={() => onTriggerRequest('Pay Acme Corp $150')}
+            disabled={isSending}
+            className="px-3 py-2 rounded-xl bg-[#1C1C1C] hover:bg-[#2A2A2A] border border-emerald-500/40 text-[#22C55E] font-bold text-left truncate shadow-sm transition-all disabled:opacity-50"
+          >
+            ▶ Valid: Acme $150
+          </motion.button>
 
-      {/* SVG Connecting Cables & Topology Graph */}
-      <div className="relative py-2 space-y-3">
+          <motion.button
+            whileHover={shouldReduceMotion || isSending ? {} : { scale: 1.02 }}
+            whileTap={shouldReduceMotion || isSending ? {} : { scale: 0.97 }}
+            onClick={() => onTriggerRequest('Pay Unknown Merchant $500')}
+            disabled={isSending}
+            className="px-3 py-2 rounded-xl bg-[#1C1C1C] hover:bg-[#2A2A2A] border border-red-500/40 text-[#EF4444] font-bold text-left truncate shadow-sm transition-all disabled:opacity-50"
+          >
+            ▶ Unlisted Target
+          </motion.button>
 
-        {/* Animated SVG Path Connecting Cables */}
-        <svg className="hidden md:block absolute top-1/2 left-0 right-0 w-full h-8 -translate-y-1/2 pointer-events-none z-0 overflow-visible opacity-30">
-          <line x1="16%" y1="50%" x2="50%" y2="50%" stroke="#8A8A8E" strokeWidth="2" strokeDasharray="4 4" />
-          <line x1="50%" y1="50%" x2="84%" y2="50%" stroke="#8A8A8E" strokeWidth="2" strokeDasharray="4 4" />
+          <motion.button
+            whileHover={shouldReduceMotion || isSending ? {} : { scale: 1.02 }}
+            whileTap={shouldReduceMotion || isSending ? {} : { scale: 0.97 }}
+            onClick={() => onTriggerRequest('Pay Acme Corp $2500')}
+            disabled={isSending}
+            className="px-3 py-2 rounded-xl bg-[#1C1C1C] hover:bg-[#2A2A2A] border border-red-500/40 text-[#EF4444] font-bold text-left truncate shadow-sm transition-all disabled:opacity-50"
+          >
+            ▶ Exceed Limit
+          </motion.button>
 
-          {/* Data Packets */}
-          {isSending && !shouldReduceMotion && (
+          <motion.button
+            whileHover={shouldReduceMotion || isSending ? {} : { scale: 1.02 }}
+            whileTap={shouldReduceMotion || isSending ? {} : { scale: 0.97 }}
+            onClick={() => onTriggerKillSwitch(isFrozen ? 'unfreeze' : 'freeze')}
+            className={`px-3 py-2 rounded-xl border font-bold text-left truncate shadow-sm transition-all ${
+              isFrozen 
+                ? 'bg-emerald-950/60 border-emerald-500 text-emerald-400' 
+                : 'bg-red-950/60 border-red-500 text-red-400'
+            }`}
+          >
+            {isFrozen ? '🔓 Unfreeze Pipeline' : '🚨 Trip Kill Switch'}
+          </motion.button>
+        </div>
+
+        {/* Custom Natural Language Prompt Bar */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customPrompt}
+            onChange={(e) => setCustomPrompt(e.target.value)}
+            placeholder='Type payment prompt e.g. "Pay Acme Corp $150"...'
+            className="flex-1 px-3.5 py-2 rounded-xl bg-[#0A0A0A] border border-[#2A2A2A] text-xs font-mono text-[#F5F5F5] placeholder-[#8A8A8E] focus:outline-none focus:border-zinc-500 shadow-inner"
+          />
+          <motion.button
+            whileHover={shouldReduceMotion || isSending || !customPrompt.trim() ? {} : { scale: 1.02 }}
+            whileTap={shouldReduceMotion || isSending || !customPrompt.trim() ? {} : { scale: 0.97 }}
+            onClick={() => onTriggerRequest(customPrompt)}
+            disabled={isSending || !customPrompt.trim()}
+            className="px-4 py-2 rounded-xl bg-[#FFFFFF] hover:bg-zinc-200 text-[#0A0A0A] font-mono text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-md"
+          >
+            {isSending ? (
+              <>
+                <span className="w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
+                <span>Executing...</span>
+              </>
+            ) : (
+              <span>EXECUTE WORKFLOW</span>
+            )}
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Main Workflow Topology Canvas with Animated SVG Stream Cables */}
+      <div className="space-y-4 relative py-2">
+
+        {/* SVG Flow Stream Canvas Overlay */}
+        <svg className="hidden md:block absolute top-[90px] left-0 right-0 w-full h-12 pointer-events-none z-0 overflow-visible opacity-50">
+          <line x1="28%" y1="50%" x2="42%" y2="50%" stroke="#8A8A8E" strokeWidth="2" strokeDasharray="4 4" />
+          <line x1="62%" y1="50%" x2="76%" y2="50%" stroke="#8A8A8E" strokeWidth="2" strokeDasharray="4 4" />
+
+          {/* Animated Glowing Packet Dots */}
+          {(isSending || activeSubNodeId) && !shouldReduceMotion && (
             <>
               <circle r="4" fill="#FFFFFF">
-                <animate attributeName="cx" values="16%; 50%" dur="0.8s" repeatCount="indefinite" />
-                <animate attributeName="cy" values="50%; 50%" dur="0.8s" repeatCount="indefinite" />
+                <animate attributeName="cx" values="28%; 42%" dur="0.6s" repeatCount="indefinite" />
+                <animate attributeName="cy" values="50%; 50%" dur="0.6s" repeatCount="indefinite" />
               </circle>
               <circle r="4" fill="#FFFFFF">
-                <animate attributeName="cx" values="50%; 84%" dur="0.8s" begin="0.3s" repeatCount="indefinite" />
-                <animate attributeName="cy" values="50%; 50%" dur="0.8s" begin="0.3s" repeatCount="indefinite" />
+                <animate attributeName="cx" values="62%; 76%" dur="0.6s" begin="0.3s" repeatCount="indefinite" />
+                <animate attributeName="cy" values="50%; 50%" dur="0.6s" begin="0.3s" repeatCount="indefinite" />
               </circle>
             </>
           )}
         </svg>
 
-        {/* Workflow Pipeline Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative z-10">
-          {workflowNodes.slice(0, 3).map((node) => {
-            const status = getNodeStatus(node);
-            const isSelected = selectedNodeId === node.id;
-            const isRejected = status.state === 'REJECTED';
-            const isPass = status.state === 'PASS';
+        {/* Top Pipelines Row (Workflows B, C, D) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 relative z-10">
+          {workflowNodes.slice(0, 3).map((wf) => {
+            const isSelected = selectedNodeId === wf.id;
 
             return (
-              <motion.div
-                key={node.id}
-                layoutId={node.id}
-                whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
-                whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
-                animate={
-                  isRejected && !shouldReduceMotion
-                    ? { x: [-3, 3, -2, 2, 0] }
-                    : {}
-                }
-                transition={
-                  isRejected
-                    ? { duration: 0.2, ease: "easeInOut" }
-                    : SPRING.cardSpring
-                }
-                onClick={() => setSelectedNodeId(isSelected ? null : node.id)}
-                className={`p-4 rounded-xl ${status.bg} ${status.border} border transition-all cursor-pointer space-y-2 relative shadow-md`}
+              <div 
+                key={wf.id}
+                className="glass-panel p-4 rounded-xl border border-[#2A2A2A] bg-[#141414] space-y-3 relative shadow-md"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-[#8A8A8E] font-bold uppercase tracking-wider">
-                    {node.id.toUpperCase()}
-                  </span>
-
-                  <div className="flex items-center gap-1">
-                    {isPass && (
-                      <motion.span
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={SPRING.cardSpring}
-                        className="text-[#22C55E] font-bold text-xs"
-                      >
-                        ✓
-                      </motion.span>
-                    )}
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#0A0A0A] ${status.color}`}>
-                      {status.label}
-                    </span>
+                {/* Workflow Header */}
+                <div className="flex items-center justify-between border-b border-[#2A2A2A] pb-2">
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-[#8A8A8E] uppercase">{wf.id.toUpperCase()}</span>
+                    <h3 className="font-mono text-xs font-bold text-[#F5F5F5]">{wf.title}</h3>
                   </div>
+                  <button 
+                    onClick={() => setSelectedNodeId(isSelected ? null : wf.id)}
+                    className="text-[10px] font-mono text-white underline font-bold"
+                  >
+                    {isSelected ? 'Close' : 'Inspect'}
+                  </button>
                 </div>
 
-                <div>
-                  <h3 className="font-mono text-xs font-bold text-[#F5F5F5]">{node.title}</h3>
-                  <p className="text-[11px] text-[#8A8A8E] mt-0.5">{node.type}</p>
-                </div>
+                {/* Internal n8n Sub-Nodes List */}
+                <div className="space-y-2">
+                  {wf.subNodes.map((sn) => {
+                    const isSubActive = activeSubNodeId === sn.id;
+                    const isSubPass = lastDecision?.decision === 'APPROVED' && !isSending && activeSubNodeId === 'D5';
+                    const isSubRejected = lastDecision?.decision === 'REJECTED' && !isSending && (
+                      (sn.id === 'B2' && lastDecision.reason?.includes('frozen')) ||
+                      (sn.id === 'C3' && (lastDecision.reason?.includes('allowlist') || lastDecision.reason?.includes('limit')))
+                    );
 
-                <div className="text-[10px] font-mono text-[#8A8A8E] pt-1 border-t border-[#2A2A2A] flex items-center justify-between">
-                  <span className="truncate max-w-[140px]">{node.checkpoint}</span>
-                  <span className="text-white underline font-bold">{isSelected ? 'Close' : 'Inspect'}</span>
+                    return (
+                      <motion.div
+                        key={sn.id}
+                        animate={isSubActive && !shouldReduceMotion ? { scale: [1, 1.02, 1] } : {}}
+                        className={`p-2.5 rounded-lg border text-xs font-mono transition-all flex items-center justify-between ${
+                          isSubActive 
+                            ? 'bg-[#1C1C1C] border-white text-white shadow-[0_0_12px_rgba(255,255,255,0.3)]' 
+                            : isSubPass 
+                              ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-300' 
+                              : isSubRejected 
+                                ? 'bg-red-950/50 border-red-500 text-red-300 shadow-[0_0_12px_rgba(239,68,68,0.3)]' 
+                                : 'bg-[#0A0A0A] border-[#2A2A2A] text-[#8A8A8E]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#1C1C1C] text-white">
+                            {sn.id}
+                          </span>
+                          <div>
+                            <span className="font-semibold text-[11px] block text-white">{sn.name}</span>
+                            <span className="text-[9px] text-[#8A8A8E]">{sn.desc}</span>
+                          </div>
+                        </div>
+
+                        {isSubActive ? (
+                          <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                        ) : isSubPass ? (
+                          <span className="text-[#22C55E] font-bold">✓</span>
+                        ) : isSubRejected ? (
+                          <span className="text-[#EF4444] font-bold">✕</span>
+                        ) : (
+                          <span className="text-zinc-600">○</span>
+                        )}
+                      </motion.div>
+                    );
+                  })}
                 </div>
-              </motion.div>
+              </div>
             );
           })}
         </div>
 
         {/* Workflow A (System Controller Node) Bar */}
         {(() => {
-          const sysNode = workflowNodes[3];
-          const sysStatus = getNodeStatus(sysNode);
-          const isSysSelected = selectedNodeId === sysNode.id;
+          const sysWf = workflowNodes[3];
+          const isSysSelected = selectedNodeId === sysWf.id;
 
           return (
-            <motion.div
-              layoutId={sysNode.id}
-              whileHover={shouldReduceMotion ? {} : { scale: 1.01 }}
-              whileTap={shouldReduceMotion ? {} : { scale: 0.99 }}
-              onClick={() => setSelectedNodeId(isSysSelected ? null : sysNode.id)}
-              className={`p-3.5 rounded-xl ${sysStatus.bg} ${sysStatus.border} border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 relative z-10`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-mono font-bold text-red-400 bg-red-950/80 px-2 py-0.5 rounded border border-red-500/30">
-                  SYSTEM CONTROL
-                </span>
-                <div>
-                  <h3 className="font-mono text-xs font-bold text-[#F5F5F5]">{sysNode.title}</h3>
-                  <p className="text-[11px] text-[#8A8A8E]">{sysNode.description}</p>
+            <div className={`p-4 rounded-xl border border-[#2A2A2A] bg-[#141414] space-y-3 relative z-10 ${isFrozen ? 'border-red-500/60 bg-red-950/20' : ''}`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#2A2A2A] pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-red-400 bg-red-950/80 px-2 py-0.5 rounded border border-red-500/30">
+                    SYSTEM CONTROL
+                  </span>
+                  <h3 className="font-mono text-xs font-bold text-[#F5F5F5]">{sysWf.title}</h3>
                 </div>
+                <button 
+                  onClick={() => setSelectedNodeId(isSysSelected ? null : sysWf.id)}
+                  className="text-[10px] font-mono text-white underline font-bold"
+                >
+                  {isSysSelected ? 'Close' : 'Inspect Node'}
+                </button>
               </div>
 
-              <div className="flex items-center gap-3 font-mono text-[10px]">
-                <span className={`font-bold ${sysStatus.color}`}>{sysStatus.label}</span>
-                <span className="text-white underline font-bold">{isSysSelected ? 'Close' : 'Inspect Node'}</span>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 font-mono text-xs">
+                {sysWf.subNodes.map((sn) => (
+                  <div key={sn.id} className="p-2 rounded bg-[#0A0A0A] border border-[#2A2A2A] flex items-center justify-between text-[11px]">
+                    <div>
+                      <span className="text-white font-bold block">{sn.name}</span>
+                      <span className="text-[9px] text-[#8A8A8E]">{sn.desc}</span>
+                    </div>
+                    <span className="text-[10px] text-zinc-500 font-bold">{sn.id}</span>
+                  </div>
+                ))}
               </div>
-            </motion.div>
+            </div>
           );
         })()}
 
@@ -258,14 +380,14 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: DURATION.deliberate, ease: EASING.entrance }}
-            className="p-4 rounded-xl bg-[#1C1C1C] border border-[#2A2A2A] space-y-3 font-mono text-xs overflow-hidden shadow-inner"
+            className="p-4 rounded-xl bg-[#1C1C1C] border border-[#2A2A2A] space-y-3 font-mono text-xs overflow-hidden shadow-inner relative z-20"
           >
             <div className="flex items-center justify-between border-b border-[#2A2A2A] pb-2">
               <div className="flex items-center gap-2">
                 <span className="text-emerald-400 font-bold">🔍 Node Inspector:</span>
                 <span className="text-white font-bold">{selectedNode.title}</span>
               </div>
-              <button
+              <button 
                 onClick={() => setSelectedNodeId(null)}
                 className="text-[#8A8A8E] hover:text-white text-xs font-bold"
               >
@@ -273,51 +395,33 @@ export default function N8nPipelineVisualizer({ activeWorkflowStep, isSending, i
               </button>
             </div>
 
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              variants={{
-                visible: { transition: { staggerChildren: 0.05 } }
-              }}
-              className="space-y-3"
-            >
-              <motion.div
-                variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]"
-              >
-                <div className="space-y-1">
-                  <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Trigger Mechanism & Live Webhook URL</span>
-                  <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold break-all select-all">{selectedNode.triggerType}</div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+              <div className="space-y-1">
+                <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Trigger Mechanism & Webhook URL</span>
+                <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold break-all select-all">{selectedNode.triggerType}</div>
+              </div>
 
-                <div className="space-y-1">
-                  <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Credential Scope (Zero-Trust)</span>
-                  <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold">{selectedNode.credential}</div>
-                </div>
-              </motion.div>
+              <div className="space-y-1">
+                <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Credential Scope (Zero-Trust)</span>
+                <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold">{selectedNode.credential}</div>
+              </div>
+            </div>
 
-              <motion.div
-                variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-                className="space-y-1"
-              >
-                <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Enforced Security Checkpoint</span>
-                <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold">{selectedNode.checkpoint}</div>
-              </motion.div>
+            <div className="space-y-1">
+              <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">Enforced Security Checkpoint</span>
+              <div className="text-[#F5F5F5] p-2 rounded bg-[#141414] border border-[#2A2A2A] font-semibold">{selectedNode.checkpoint}</div>
+            </div>
 
-              <motion.div
-                variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-                className="space-y-1"
-              >
-                <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">n8n Internal Nodes Included</span>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {selectedNode.nodesInWorkflow.map((n, idx) => (
-                    <span key={idx} className="px-2 py-1 rounded bg-[#141414] border border-[#2A2A2A] text-[10px] text-[#A1A1AA] font-mono font-medium">
-                      {n}
-                    </span>
-                  ))}
-                </div>
-              </motion.div>
-            </motion.div>
+            <div className="space-y-1">
+              <span className="text-[#8A8A8E] uppercase tracking-wider text-[10px] font-bold">n8n Internal Nodes Included</span>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {selectedNode.nodesInWorkflow.map((n, idx) => (
+                  <span key={idx} className="px-2 py-1 rounded bg-[#141414] border border-[#2A2A2A] text-[10px] text-[#A1A1AA] font-mono font-medium">
+                    {n}
+                  </span>
+                ))}
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
