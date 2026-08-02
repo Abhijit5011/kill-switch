@@ -9,9 +9,21 @@ import TransactionLedger from './components/TransactionLedger';
 import KillSwitchControl from './components/KillSwitchControl';
 import SystemArchitectureCard from './components/SystemArchitectureCard';
 import OperatorModal from './components/OperatorModal';
+import GatewayLandingScreen from './components/GatewayLandingScreen';
+import VendorInvoicePortal from './VendorInvoicePortal';
 import { CONFIG } from './config';
 
 export default function App() {
+  // Portal View State ('gateway' | 'client' | 'server')
+  const [currentView, setCurrentView] = useState(() => {
+    return localStorage.getItem('unified_active_view') || 'gateway';
+  });
+
+  const handleSelectView = (view) => {
+    setCurrentView(view);
+    localStorage.setItem('unified_active_view', view);
+  };
+
   // System State
   const [state, setState] = useState({
     is_frozen: false,
@@ -183,16 +195,97 @@ export default function App() {
   const remainingBudget = Math.max(0, state.daily_limit - state.spent_today);
   const budgetPercentage = Math.min(100, Math.round((state.spent_today / state.daily_limit) * 100));
 
+  // Initial Gateway Choice Screen
+  if (currentView === 'gateway') {
+    return <GatewayLandingScreen onSelectView={handleSelectView} />;
+  }
+
+  // Render Server View (Vendor Invoice Portal)
+  if (currentView === 'server') {
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-900 text-white font-sans">
+        {/* Top View Switcher Ribbon */}
+        <div className="bg-slate-950 text-white border-b border-slate-800 px-4 sm:px-6 py-2.5 flex items-center justify-between text-xs font-mono">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => handleSelectView('gateway')}
+              className="text-slate-400 hover:text-white font-bold flex items-center gap-1 transition-colors"
+            >
+              <span>⬅ Gateway Home</span>
+            </button>
+            <span className="text-slate-700">|</span>
+            <span className="text-zinc-300 font-bold">Single-URL View:</span>
+            <span className="px-2 py-0.5 rounded bg-purple-600 text-white font-bold text-[10px] uppercase">
+              🛡️ FRONTEND-SERVER PORTAL
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => handleSelectView('client')}
+              className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
+            >
+              🚀 Switch to Client Portal
+            </button>
+            <button 
+              onClick={() => handleSelectView('server')}
+              className="px-3 py-1 rounded bg-purple-600 text-white font-bold transition-all"
+            >
+              🛡️ Server Portal
+            </button>
+          </div>
+        </div>
+
+        {/* Vendor Invoice Portal View */}
+        <VendorInvoicePortal />
+      </div>
+    );
+  }
+
+  // Render Client View (AI Agent Client Portal)
   return (
     <div className="min-h-screen flex flex-col grid-pattern bg-[#0A0A0A] text-[#F5F5F5]">
+      {/* Top View Switcher Ribbon */}
+      <div className="bg-slate-950 text-white border-b border-slate-800 px-4 sm:px-6 py-2.5 flex items-center justify-between text-xs font-mono z-50">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => handleSelectView('gateway')}
+            className="text-slate-400 hover:text-white font-bold flex items-center gap-1 transition-colors"
+          >
+            <span>⬅ Gateway Home</span>
+          </button>
+          <span className="text-slate-700">|</span>
+          <span className="text-zinc-300 font-bold">Single-URL View:</span>
+          <span className="px-2 py-0.5 rounded bg-[#635BFF] text-white font-bold text-[10px] uppercase">
+            🚀 FRONTEND-CLIENT PORTAL
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => handleSelectView('client')}
+            className="px-3 py-1 rounded bg-[#635BFF] text-white font-bold transition-all"
+          >
+            🚀 Client Portal
+          </button>
+          <button 
+            onClick={() => handleSelectView('server')}
+            className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition-all"
+          >
+            🛡️ Switch to Server Portal
+          </button>
+        </div>
+      </div>
+
       <Header isFrozen={state.is_frozen} />
 
       {state.is_frozen && <EmergencyBanner />}
 
       {notification && (
-        <div className="fixed top-20 right-6 z-50 animate-bounce">
-          <div className={`px-4 py-3 rounded-xl border text-sm font-mono shadow-2xl flex items-center gap-3 ${notification.type === 'error' ? 'bg-red-950/90 border-red-500 text-red-100' : 'bg-emerald-950/90 border-emerald-500 text-emerald-100'
-            }`}>
+        <div className="fixed top-24 right-6 z-50 animate-bounce">
+          <div className={`px-4 py-3 rounded-xl border text-sm font-mono shadow-2xl flex items-center gap-3 ${
+            notification.type === 'error' ? 'bg-red-950/90 border-red-500 text-red-100' : 'bg-emerald-950/90 border-emerald-500 text-emerald-100'
+          }`}>
             <span>{notification.type === 'error' ? '⚠️' : '✅'}</span>
             <span>{notification.msg}</span>
           </div>
@@ -200,37 +293,37 @@ export default function App() {
       )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6 flex-1 w-full">
-
+        
         {/* Top Hero Row: Metrics & Velocity Bar */}
         <div className="space-y-6">
-          <MetricsCards
-            dailyLimit={state.daily_limit}
-            spentToday={state.spent_today}
-            remainingBudget={remainingBudget}
-            budgetPercentage={budgetPercentage}
+          <MetricsCards 
+            dailyLimit={state.daily_limit} 
+            spentToday={state.spent_today} 
+            remainingBudget={remainingBudget} 
+            budgetPercentage={budgetPercentage} 
           />
 
-          <SpendProgressBar
-            spentToday={state.spent_today}
-            dailyLimit={state.daily_limit}
-            budgetPercentage={budgetPercentage}
+          <SpendProgressBar 
+            spentToday={state.spent_today} 
+            dailyLimit={state.daily_limit} 
+            budgetPercentage={budgetPercentage} 
           />
         </div>
 
         {/* Main Dashboard Section (8 : 4 Grid) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
+          
           {/* Left Column (8 cols): Transaction Ledger -> n8n Workflow Execution Visualizer BELOW */}
           <div className="lg:col-span-8 space-y-6">
-
+            
             {/* 1. Transaction Ledger */}
             <TransactionLedger transactions={state.transactions} />
 
             {/* 2. n8n Workflow Execution Visualizer POSITIONED BELOW TRANSACTIONS LOG */}
-            <N8nPipelineVisualizer
-              isSending={isSending}
-              isFrozen={state.is_frozen}
-              lastDecision={agentResponse}
+            <N8nPipelineVisualizer 
+              isSending={isSending} 
+              isFrozen={state.is_frozen} 
+              lastDecision={agentResponse} 
               onTriggerRequest={handleSendAgentRequest}
               onTriggerKillSwitch={(action) => setActorModal({ open: true, action, actorName: '' })}
             />
@@ -238,9 +331,9 @@ export default function App() {
 
           {/* Right Column (4 cols): Circuit Breaker Control, Allowlist & Compliance */}
           <div className="lg:col-span-4 space-y-6">
-            <KillSwitchControl
-              isFrozen={state.is_frozen}
-              onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })}
+            <KillSwitchControl 
+              isFrozen={state.is_frozen} 
+              onOpenModal={(action) => setActorModal({ open: true, action, actorName: '' })} 
             />
 
             <AllowlistCard allowlist={state.allowlist} />
@@ -253,13 +346,13 @@ export default function App() {
       </main>
 
       <footer className="border-t border-[#2A2A2A] py-4 text-center text-xs font-mono text-[#8A8A8E] bg-[#0A0A0A]">
-        Stripe Test Mode · Supabase Postgres · n8n Cloud · Gemini 2.5 Flash
+        Single-URL Deployment Portal · Stripe Test Mode · Supabase Postgres · n8n Cloud
       </footer>
 
-      <OperatorModal
-        actorModal={actorModal}
-        setActorModal={setActorModal}
-        onSubmit={handleKillSwitchSubmit}
+      <OperatorModal 
+        actorModal={actorModal} 
+        setActorModal={setActorModal} 
+        onSubmit={handleKillSwitchSubmit} 
       />
     </div>
   );
